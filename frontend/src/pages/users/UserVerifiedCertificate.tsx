@@ -38,6 +38,7 @@ import {
   readImageAsDataUrl,
   upsertCertificateBranding,
 } from "../../utils/certificateBrandingApi";
+import BulkCertificatePanel from "./BulkCertificatePanel";
 
 type FormStatus = "idle" | "saving" | "error" | "success";
 
@@ -747,6 +748,17 @@ const UserVerifiedCertificate = () => {
         </ul>
       </section>
 
+      {session ? (
+        <BulkCertificatePanel
+          userId={session.id}
+          defaultOrganization={issuingOrganization}
+          onCreated={(created) => {
+            setCerts((prev) => [...created, ...prev]);
+            if (created[0]) setQrFocusId(created[0].id);
+          }}
+        />
+      ) : null}
+
       <section className="rounded-[1.75rem] border border-white/5 bg-[var(--uw-card)] p-cozy sm:p-roomy space-y-cozy">
         <div className="flex items-start gap-snug">
           <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-cyan)]">
@@ -913,8 +925,8 @@ const UserVerifiedCertificate = () => {
               Bulk generation
             </p>
             <p className="mt-tight text-[12px] text-[var(--uw-muted)]">
-              Coming soon — Excel upload (Name, Email, Certificate No), auto QR +
-              PDF, optional email.
+              Live — Excel/CSV upload (Name, Email, Certificate No), auto QR +
+              PDF ZIP, optional email list / mailto draft.
             </p>
           </li>
           <li className="rounded-2xl border border-white/5 bg-[var(--uw-elevated)] px-cozy py-snug">
