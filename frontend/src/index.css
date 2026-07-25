@@ -227,4 +227,92 @@
   .uw-pop {
     animation: uw-pop 0.35s ease-out both;
   }
+
+  /* 3D phone mockup (landing hero) */
+  .phone-scene {
+    perspective: 1200px;
+    perspective-origin: 50% 40%;
+  }
+
+  .phone-float {
+    animation: phone-float 5.5s ease-in-out infinite;
+    transform-style: preserve-3d;
+  }
+
+  .phone-3d {
+    position: relative;
+    transform: rotateY(-18deg) rotateX(8deg) rotateZ(-2deg);
+    transform-style: preserve-3d;
+    transition: transform 0.45s ease;
+  }
+
+  .phone-scene:hover .phone-3d {
+    transform: rotateY(-8deg) rotateX(4deg) rotateZ(0deg);
+  }
+
+  .phone-body {
+    position: relative;
+    z-index: 2;
+    border-radius: 2.25rem;
+    padding: 0.55rem;
+    background: linear-gradient(160deg, #2a3344 0%, #0c1018 45%, #1a222f 100%);
+    box-shadow:
+      0 25px 50px -12px rgba(0, 0, 0, 0.75),
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    aspect-ratio: 9 / 19.2;
+    transform: translateZ(18px);
+  }
+
+  .phone-side {
+    position: absolute;
+    inset: 0.4rem -0.35rem 0.4rem auto;
+    width: 0.7rem;
+    border-radius: 0.35rem;
+    background: linear-gradient(180deg, #3a4558, #121820);
+    transform: translateZ(0) rotateY(90deg) translateZ(-2px);
+    transform-origin: right center;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .phone-notch {
+    position: absolute;
+    top: 0.85rem;
+    left: 50%;
+    z-index: 3;
+    width: 28%;
+    height: 1.05rem;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: #05070c;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  .phone-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-radius: 1.75rem;
+    overflow: hidden;
+    background: #000000;
+    background-image:
+      radial-gradient(ellipse at top, rgba(0, 212, 197, 0.12), transparent 55%),
+      radial-gradient(ellipse at bottom left, rgba(0, 43, 91, 0.35), transparent 50%);
+  }
+
+  @keyframes phone-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-14px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .phone-float {
+      animation: none;
+    }
+  }
 }
