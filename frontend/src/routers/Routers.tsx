@@ -9,6 +9,7 @@ import {
   RedirectPage,
   UserDashboard,
   UserLinksGenerated,
+  UserVerifiedCertificate,
 } from "../pages";
 import ProtectedRoute from "../components/security/ProtectedRoute";
 import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
@@ -28,6 +29,10 @@ const Routers = () => {
         <Route path="/user" element={<ProtectedRoute role="USER" />}>
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="links-generated" element={<UserLinksGenerated />} />
+          <Route
+            path="verified-certificate"
+            element={<UserVerifiedCertificate />}
+          />
         </Route>
         {/* Admin console — sidebar layout via ProtectedRoute */}
         <Route path="/admin" element={<ProtectedRoute role="ADMIN" />}>

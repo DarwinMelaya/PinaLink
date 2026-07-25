@@ -1,5 +1,5 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Link2, LogOut, Plus } from "lucide-react";
+import { LayoutDashboard, Link2, LogOut, Plus, BadgeCheck } from "lucide-react";
 import { logout } from "../utils/authApi";
 
 const NAV_ITEMS = [
@@ -13,6 +13,12 @@ const NAV_ITEMS = [
     to: "/user/links-generated",
     label: "My Links",
     icon: Link2,
+    end: false,
+  },
+  {
+    to: "/user/verified-certificate",
+    label: "Verified Certificate",
+    icon: BadgeCheck,
     end: false,
   },
 ] as const;
