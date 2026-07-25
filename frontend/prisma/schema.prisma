@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Short URL records. Runtime reads/writes go through Supabase JS (Vite SPA).
+model ShortLink {
+  // uuid() also usable at DB via gen_random_uuid(); SPA sends id because Supabase skips Prisma defaults
+  id          String   @id @default(uuid())
+  code        String   @unique @db.VarChar(12)
+  originalUrl String   @map("original_url") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  clickCount  Int      @default(0) @map("click_count")
+
+  @@map("short_links")
+}
