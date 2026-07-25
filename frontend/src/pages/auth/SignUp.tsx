@@ -52,12 +52,6 @@ const SignUp = () => {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Registration failed.";
-      // Confirm-email flow: treat as info, not hard fail
-      if (message.toLowerCase().includes("check your email")) {
-        setStatus("idle");
-        setInfoMessage(message);
-        return;
-      }
       setStatus("error");
       setErrorMessage(message);
     }

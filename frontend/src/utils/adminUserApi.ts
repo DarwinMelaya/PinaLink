@@ -50,8 +50,7 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
 
 /**
  * Creates Auth user + profile without leaving the admin signed in.
- * ASSUMPTION: email confirmation may be off; if on, Auth user is created
- * without a session and admin session stays put.
+ * Uses DB create (no /auth/v1/signup) so email rate limits never apply.
  */
 export async function createAdminUser(
   input: AdminUserCreateInput,
@@ -68,6 +67,9 @@ export async function createAdminUser(
   if (!name || !email || !password) {
     throw new Error("Name, email, and password are required.");
   }
+  if (!email.includes("@")) {
+    throw new Error("Enter a valid email.");
+  }
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }
@@ -75,93 +77,20 @@ export async function createAdminUser(
     throw new Error("Invalid role.");
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const adminAuth = sessionData.session;
-  if (!adminAuth) {
-    throw new Error("Auth session expired. Sign in again.");
-  }
-
-  const { data, error } = await supabase.auth.signUp({
+  const { createAuthUserWithoutEmail } = await import("./createAuthUser");
+  const created = await createAuthUserWithoutEmail({
     email,
     password,
-    options: {
-      data: { name, role: input.role },
-    },
+    name,
+    role: input.role,
   });
-
-  if (error) {
-    throw new Error(error.message || "Could not create user.");
-  }
-  if (!data.user) {
-    throw new Error("Could not create user. No Auth user returned.");
-  }
-
-  // Restore admin Auth session if signUp switched it
-  const { error: restoreError } = await supabase.auth.setSession({
-    access_token: adminAuth.access_token,
-    refresh_token: adminAuth.refresh_token,
-  });
-  saveSession(adminProfile);
-
-  if (restoreError) {
-    throw new Error(
-      "User may have been created, but admin session restore failed. Sign in again.",
-    );
-  }
-
-  const { data: byId } = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT)
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  const { data: byEmail } = byId
-    ? { data: null }
-    : await supabase
-        .from("profiles")
-        .select(PROFILE_SELECT)
-        .eq("email", email)
-        .maybeSingle();
-
-  const existing = (byId ?? byEmail) as AdminUserRow | null;
-
-  if (existing) {
-    const { data: updated, error: updateError } = await supabase
-      .from("profiles")
-      .update({ name, email, role: input.role })
-      .eq("id", existing.id)
-      .select(PROFILE_SELECT)
-      .single();
-
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
-    return {
-      ...(updated as AdminUserRow),
-      role: parseRole((updated as AdminUserRow).role),
-    };
-  }
-
-  const { data: created, error: insertError } = await supabase
-    .from("profiles")
-    .insert({
-      id: data.user.id,
-      email,
-      name,
-      password_hash: null,
-      role: input.role,
-    })
-    .select(PROFILE_SELECT)
-    .single();
-
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
 
   return {
-    ...(created as AdminUserRow),
-    role: parseRole((created as AdminUserRow).role),
+    id: created.id,
+    email: created.email,
+    name: created.name,
+    role: parseRole(created.role),
+    created_at: created.created_at,
   };
 }
 

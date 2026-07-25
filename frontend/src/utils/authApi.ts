@@ -175,6 +175,9 @@ export async function registerProfile(
   if (!name || !email || !input.password) {
     throw new Error("Name, email, and password are required.");
   }
+  if (!email.includes("@")) {
+    throw new Error("Enter a valid email.");
+  }
   if (input.password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }
@@ -182,34 +185,33 @@ export async function registerProfile(
     throw new Error("Invalid role.");
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  // Create via DB middleware — avoids /auth/v1/signup email rate limits
+  const { createAuthUserWithoutEmail } = await import("./createAuthUser");
+  const created = await createAuthUserWithoutEmail({
     email,
     password: input.password,
-    options: {
-      data: { name, role: input.role },
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
-    },
-  });
-
-  if (error) {
-    throw new Error(error.message || "Registration failed.");
-  }
-
-  if (!data.user) {
-    throw new Error("Registration failed. No user returned.");
-  }
-
-  // Confirm-email ON: session may be null until user clicks mail link
-  if (!data.session) {
-    throw new Error(
-      "Check your email to confirm your account, then sign in.",
-    );
-  }
-
-  return upsertProfileFromAuthUser(data.user, {
     name,
     role: input.role,
   });
+
+  const { data: signedIn, error: signInError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password: input.password,
+    });
+
+  if (signInError || !signedIn.user) {
+    throw new Error(
+      signInError?.message ||
+        "Account created but sign-in failed. Try logging in.",
+    );
+  }
+
+  const profile = await upsertProfileFromAuthUser(signedIn.user, {
+    name: created.name,
+    role: created.role,
+  });
+  return profile;
 }
 
 /** Sign in with Supabase Auth email/password. */
