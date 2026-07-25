@@ -1,5 +1,23 @@
 export type QrErrorLevel = "L" | "M" | "Q" | "H";
 
+/** Dot / module style (qr-code-styling). */
+export type QrModuleShape =
+  | "square"
+  | "dots"
+  | "rounded"
+  | "extra-rounded"
+  | "classy"
+  | "classy-rounded";
+
+export type QrEyeShape = "square" | "dot" | "extra-rounded";
+
+/** Outer QR canvas shape. */
+export type QrCanvasShape = "square" | "circle";
+
+export type QrFrameId = "none" | "soft" | "brand" | "polaroid" | "badge";
+
+export type QrStickerId = "none" | "scan" | "new" | "hot" | "verified";
+
 export type QrStyle = {
   fgColor: string;
   bgColor: string;
@@ -13,6 +31,11 @@ export type QrStyle = {
   excavate: boolean;
   /** Optional label under the QR (print / share card). */
   caption: string;
+  moduleShape: QrModuleShape;
+  eyeShape: QrEyeShape;
+  canvasShape: QrCanvasShape;
+  frame: QrFrameId;
+  sticker: QrStickerId;
 };
 
 export const DEFAULT_QR_STYLE: QrStyle = {
@@ -25,7 +48,55 @@ export const DEFAULT_QR_STYLE: QrStyle = {
   logoScale: 0.22,
   excavate: true,
   caption: "",
+  moduleShape: "square",
+  eyeShape: "square",
+  canvasShape: "square",
+  frame: "none",
+  sticker: "none",
 };
+
+export const QR_MODULE_SHAPES: {
+  id: QrModuleShape;
+  label: string;
+  hint: string;
+}[] = [
+  { id: "square", label: "Square", hint: "Classic" },
+  { id: "rounded", label: "Rounded", hint: "Soft corners" },
+  { id: "extra-rounded", label: "Smooth", hint: "Extra soft" },
+  { id: "dots", label: "Dots", hint: "Circles" },
+  { id: "classy", label: "Classy", hint: "Elegant" },
+  { id: "classy-rounded", label: "Classy+", hint: "Soft elegant" },
+];
+
+export const QR_EYE_SHAPES: { id: QrEyeShape; label: string }[] = [
+  { id: "square", label: "Square" },
+  { id: "dot", label: "Dot" },
+  { id: "extra-rounded", label: "Rounded" },
+];
+
+export const QR_FRAMES: {
+  id: QrFrameId;
+  label: string;
+  hint: string;
+}[] = [
+  { id: "none", label: "None", hint: "Bare QR" },
+  { id: "soft", label: "Soft", hint: "Padded card" },
+  { id: "brand", label: "Brand", hint: "Navy→cyan edge" },
+  { id: "polaroid", label: "Polaroid", hint: "Photo frame" },
+  { id: "badge", label: "Badge", hint: "Pill label" },
+];
+
+export const QR_STICKERS: {
+  id: QrStickerId;
+  label: string;
+  text: string;
+}[] = [
+  { id: "none", label: "None", text: "" },
+  { id: "scan", label: "Scan me", text: "SCAN ME" },
+  { id: "new", label: "New", text: "NEW" },
+  { id: "hot", label: "Hot", text: "HOT" },
+  { id: "verified", label: "Verified", text: "✓ OK" },
+];
 
 export const QR_COLOR_PRESETS = [
   { id: "pinalink", label: "Pinalink", fgColor: "#002b5b", bgColor: "#ffffff" },
@@ -55,6 +126,9 @@ export const QR_TEMPLATES: QrTemplate[] = [
       level: "M",
       marginSize: 2,
       size: 240,
+      moduleShape: "rounded",
+      eyeShape: "extra-rounded",
+      frame: "brand",
     },
   },
   {
@@ -67,30 +141,34 @@ export const QR_TEMPLATES: QrTemplate[] = [
       level: "Q",
       marginSize: 3,
       size: 280,
+      moduleShape: "square",
+      eyeShape: "square",
+      frame: "none",
     },
   },
   {
-    id: "soft",
-    label: "Soft",
-    hint: "Teal wash",
+    id: "dots",
+    label: "Dots",
+    hint: "Circular modules",
     style: {
-      fgColor: "#007a72",
-      bgColor: "#ecfffd",
-      level: "M",
-      marginSize: 2,
-      size: 240,
+      fgColor: "#002b5b",
+      bgColor: "#ffffff",
+      moduleShape: "dots",
+      eyeShape: "dot",
+      frame: "soft",
+      sticker: "scan",
     },
   },
   {
-    id: "dark",
-    label: "Dark",
-    hint: "Night mode",
+    id: "circle",
+    label: "Circle",
+    hint: "Round QR",
     style: {
-      fgColor: "#00d4c5",
-      bgColor: "#0a0f18",
-      level: "Q",
-      marginSize: 2,
-      size: 240,
+      canvasShape: "circle",
+      moduleShape: "rounded",
+      eyeShape: "extra-rounded",
+      frame: "soft",
+      level: "H",
     },
   },
   {
@@ -103,6 +181,8 @@ export const QR_TEMPLATES: QrTemplate[] = [
       level: "H",
       marginSize: 4,
       size: 320,
+      frame: "polaroid",
+      sticker: "scan",
     },
   },
   {
@@ -117,6 +197,8 @@ export const QR_TEMPLATES: QrTemplate[] = [
       size: 280,
       excavate: true,
       logoScale: 0.24,
+      moduleShape: "rounded",
+      frame: "badge",
     },
   },
 ];
@@ -137,6 +219,29 @@ export const QR_LEVEL_META: Record<
   Q: { label: "High", hint: "Scratched / distant" },
   H: { label: "Max", hint: "Best with logo" },
 };
+
+export const QR_FEATURE_HIGHLIGHTS = [
+  {
+    title: "Logo inside QR",
+    detail: "Upload brand mark — auto Max ECC",
+  },
+  {
+    title: "QR shapes",
+    detail: "Square, dots, rounded, classy, circle",
+  },
+  {
+    title: "Frames & stickers",
+    detail: "Brand edge, polaroid, SCAN ME badge",
+  },
+  {
+    title: "PNG · SVG · PDF",
+    detail: "Download print-ready files",
+  },
+  {
+    title: "Dynamic QR",
+    detail: "Change destination — same QR code",
+  },
+] as const;
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -181,15 +286,18 @@ export function qrContrastRatio(fg: string, bg: string): number | null {
   return (light + 0.05) / (dark + 0.05);
 }
 
-export function qrScanability(
-  style: QrStyle,
-): "good" | "ok" | "weak" {
+export function qrScanability(style: QrStyle): "good" | "ok" | "weak" {
   const ratio = qrContrastRatio(style.fgColor, style.bgColor);
   if (ratio == null) return "ok";
   if (ratio >= 7) return "good";
   if (ratio >= 3) return "ok";
   return "weak";
 }
+
+const MODULE_SHAPES = new Set<string>(QR_MODULE_SHAPES.map((s) => s.id));
+const EYE_SHAPES = new Set<string>(QR_EYE_SHAPES.map((s) => s.id));
+const FRAMES = new Set<string>(QR_FRAMES.map((s) => s.id));
+const STICKERS = new Set<string>(QR_STICKERS.map((s) => s.id));
 
 export function parseQrStyle(raw: unknown): QrStyle {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_QR_STYLE };
@@ -220,6 +328,29 @@ export function parseQrStyle(raw: unknown): QrStyle {
       ? obj.caption.trim().slice(0, 48)
       : DEFAULT_QR_STYLE.caption;
 
+  const moduleShape =
+    typeof obj.moduleShape === "string" && MODULE_SHAPES.has(obj.moduleShape)
+      ? (obj.moduleShape as QrModuleShape)
+      : DEFAULT_QR_STYLE.moduleShape;
+
+  const eyeShape =
+    typeof obj.eyeShape === "string" && EYE_SHAPES.has(obj.eyeShape)
+      ? (obj.eyeShape as QrEyeShape)
+      : DEFAULT_QR_STYLE.eyeShape;
+
+  const canvasShape =
+    obj.canvasShape === "circle" ? "circle" : "square";
+
+  const frame =
+    typeof obj.frame === "string" && FRAMES.has(obj.frame)
+      ? (obj.frame as QrFrameId)
+      : DEFAULT_QR_STYLE.frame;
+
+  const sticker =
+    typeof obj.sticker === "string" && STICKERS.has(obj.sticker)
+      ? (obj.sticker as QrStickerId)
+      : DEFAULT_QR_STYLE.sticker;
+
   return {
     fgColor:
       typeof obj.fgColor === "string" && obj.fgColor.trim()
@@ -239,7 +370,16 @@ export function parseQrStyle(raw: unknown): QrStyle {
     logoScale,
     excavate: typeof obj.excavate === "boolean" ? obj.excavate : true,
     caption,
+    moduleShape,
+    eyeShape,
+    canvasShape,
+    frame,
+    sticker,
   };
+}
+
+export function stickerLabel(id: QrStickerId): string {
+  return QR_STICKERS.find((s) => s.id === id)?.text ?? "";
 }
 
 export function isLinkExpired(expiresAt: string | null | undefined): boolean {

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
+import QRCodeStyling, {
+  type CornerDotType,
+  type CornerSquareType,
+  type DotType,
+  type Options,
+} from "qr-code-styling";
+import { jsPDF } from "jspdf";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -7,23 +13,33 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  FileType,
+  Frame,
   ImagePlus,
+  Link2,
   Palette,
   RotateCcw,
   Save,
+  Shapes,
   Sparkles,
   X,
+  Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   DEFAULT_QR_STYLE,
   QR_COLOR_PRESETS,
+  QR_EYE_SHAPES,
+  QR_FRAMES,
   QR_LEVEL_META,
+  QR_MODULE_SHAPES,
   QR_SIZE_PRESETS,
+  QR_STICKERS,
   QR_TEMPLATES,
   parseQrStyle,
   qrContrastRatio,
   qrScanability,
+  stickerLabel,
   type QrErrorLevel,
   type QrStyle,
 } from "../../utils/qrStyle";
@@ -33,9 +49,10 @@ type QrStudioPanelProps = {
   link: ShortLinkRow;
   shortUrl: string;
   onSaved: (row: ShortLinkRow) => void;
+  onEditDestination?: () => void;
 };
 
-type StudioSection = "look" | "logo" | "export";
+type StudioSection = "look" | "shape" | "logo" | "export";
 
 const LEVELS: QrErrorLevel[] = ["L", "M", "Q", "H"];
 
@@ -43,9 +60,181 @@ function stylesEqual(a: QrStyle, b: QrStyle): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const dropRef = useRef<HTMLLabelElement>(null);
+function buildQrOptions(style: QrStyle, data: string, size: number): Partial<Options> {
+  const eyeSquare: CornerSquareType =
+    style.eyeShape === "dot"
+      ? "dot"
+      : style.eyeShape === "extra-rounded"
+        ? "extra-rounded"
+        : "square";
+  const eyeDot: CornerDotType =
+    style.eyeShape === "extra-rounded" ? "dot" : style.eyeShape;
+
+  return {
+    width: size,
+    height: size,
+    type: "canvas",
+    data,
+    margin: style.marginSize * 4,
+    shape: style.canvasShape,
+    qrOptions: {
+      errorCorrectionLevel: style.level,
+    },
+    image: style.logoDataUrl ?? undefined,
+    imageOptions: {
+      hideBackgroundDots: style.excavate,
+      imageSize: style.logoScale,
+      margin: 4,
+      crossOrigin: "anonymous",
+    },
+    dotsOptions: {
+      type: style.moduleShape as DotType,
+      color: style.fgColor,
+    },
+    cornersSquareOptions: {
+      type: eyeSquare,
+      color: style.fgColor,
+    },
+    cornersDotOptions: {
+      type: eyeDot,
+      color: style.fgColor,
+    },
+    backgroundOptions: {
+      color: style.bgColor,
+    },
+  };
+}
+
+function frameClass(frame: QrStyle["frame"]): string {
+  switch (frame) {
+    case "soft":
+      return "rounded-[1.5rem] bg-white/95 p-4 shadow-lg";
+    case "brand":
+      return "rounded-[1.5rem] p-[3px] uw-gradient shadow-[0_0_24px_rgba(0,212,197,0.25)]";
+    case "polaroid":
+      return "rounded-sm bg-white p-3 pb-10 shadow-xl";
+    case "badge":
+      return "rounded-[1.75rem] border-4 border-[var(--uw-cyan)] bg-white p-3";
+    default:
+      return "rounded-2xl p-2";
+  }
+}
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("Could not read blob."));
+    };
+    reader.onerror = () => reject(new Error("Could not read blob."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load QR image."));
+    img.src = src;
+  });
+}
+
+/** Bake frame / sticker / caption into a downloadable PNG canvas. */
+async function composeExportCanvas(
+  qrBlob: Blob,
+  style: QrStyle,
+): Promise<HTMLCanvasElement> {
+  const dataUrl = await blobToDataUrl(qrBlob);
+  const qrImg = await loadImage(dataUrl);
+  const pad =
+    style.frame === "none" ? 16 : style.frame === "polaroid" ? 28 : 24;
+  const captionH = style.caption.trim() ? 40 : 0;
+  const polaroidExtra = style.frame === "polaroid" ? 36 : 0;
+  const badgeExtra = style.frame === "badge" ? 8 : 0;
+  const stickerExtra = style.sticker !== "none" ? 12 : 0;
+
+  const out = document.createElement("canvas");
+  out.width = qrImg.width + pad * 2 + badgeExtra * 2;
+  out.height =
+    qrImg.height + pad * 2 + captionH + polaroidExtra + badgeExtra * 2 + stickerExtra;
+  const ctx = out.getContext("2d");
+  if (!ctx) throw new Error("Canvas unavailable.");
+
+  // Background / frame fill
+  if (style.frame === "brand") {
+    const grad = ctx.createLinearGradient(0, 0, out.width, 0);
+    grad.addColorStop(0, "#002b5b");
+    grad.addColorStop(1, "#00d4c5");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.fillStyle = style.bgColor;
+    const inset = 6;
+    ctx.fillRect(inset, inset, out.width - inset * 2, out.height - inset * 2 - captionH);
+  } else if (style.frame === "none") {
+    ctx.fillStyle = style.bgColor;
+    ctx.fillRect(0, 0, out.width, out.height);
+  } else {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, out.width, out.height);
+  }
+
+  const qrX = (out.width - qrImg.width) / 2;
+  const qrY = pad + badgeExtra;
+  ctx.drawImage(qrImg, qrX, qrY);
+
+  const sticker = stickerLabel(style.sticker);
+  if (sticker) {
+    ctx.font = "bold 12px system-ui, sans-serif";
+    const tw = Math.max(56, ctx.measureText(sticker).width + 24);
+    const bx = out.width - tw - 12;
+    const by = 10;
+    ctx.fillStyle = "#00d4c5";
+    const r = 14;
+    ctx.beginPath();
+    ctx.moveTo(bx + r, by);
+    ctx.arcTo(bx + tw, by, bx + tw, by + 28, r);
+    ctx.arcTo(bx + tw, by + 28, bx, by + 28, r);
+    ctx.arcTo(bx, by + 28, bx, by, r);
+    ctx.arcTo(bx, by, bx + tw, by, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#001428";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(sticker, bx + tw / 2, by + 14);
+  }
+
+  if (style.frame === "badge") {
+    ctx.fillStyle = "#00d4c5";
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("PINALINK", out.width / 2, 18);
+  }
+
+  if (style.caption.trim()) {
+    ctx.fillStyle = style.fgColor;
+    ctx.font = "600 16px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      style.caption.trim(),
+      out.width / 2,
+      qrY + qrImg.height + 28,
+    );
+  }
+
+  return out;
+}
+
+const QrStudioPanel = ({
+  link,
+  shortUrl,
+  onSaved,
+  onEditDestination,
+}: QrStudioPanelProps) => {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const qrRef = useRef<QRCodeStyling | null>(null);
   const [style, setStyle] = useState<QrStyle>(() => parseQrStyle(link.qr_style));
   const [savedSnapshot, setSavedSnapshot] = useState<QrStyle>(() =>
     parseQrStyle(link.qr_style),
@@ -55,6 +244,8 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  const displaySize = Math.min(style.size, 240);
 
   useEffect(() => {
     const next = parseQrStyle(link.qr_style);
@@ -72,21 +263,23 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
     return () => window.clearTimeout(t);
   }, [copied]);
 
+  // Mount / update styled QR
+  useEffect(() => {
+    if (!mountRef.current) return;
+    const options = buildQrOptions(style, shortUrl, displaySize);
+
+    if (!qrRef.current) {
+      qrRef.current = new QRCodeStyling(options);
+      mountRef.current.innerHTML = "";
+      qrRef.current.append(mountRef.current);
+    } else {
+      qrRef.current.update(options);
+    }
+  }, [style, shortUrl, displaySize]);
+
   const dirty = !stylesEqual(style, savedSnapshot);
   const scan = qrScanability(style);
   const contrast = qrContrastRatio(style.fgColor, style.bgColor);
-
-  const logoSize = Math.round(style.size * style.logoScale);
-  const imageSettings = style.logoDataUrl
-    ? {
-        src: style.logoDataUrl,
-        height: logoSize,
-        width: logoSize,
-        excavate: style.excavate,
-      }
-    : undefined;
-
-  const displaySize = Math.min(style.size, 260);
 
   function patchStyle(partial: Partial<QrStyle>) {
     setStyle((prev) => ({ ...prev, ...partial }));
@@ -96,10 +289,22 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
     setStyle((prev) => ({
       ...prev,
       ...partial,
-      // Keep existing logo unless template is logo-focused without clearing
       logoDataUrl: prev.logoDataUrl,
     }));
     setSection("look");
+  }
+
+  async function getFullSizeBlob(
+    extension: "png" | "svg" | "jpeg" = "png",
+  ): Promise<Blob> {
+    const exporter = new QRCodeStyling(
+      buildQrOptions(style, shortUrl, style.size),
+    );
+    const raw = await exporter.getRawData(extension);
+    if (!raw || !(raw instanceof Blob)) {
+      throw new Error("Could not generate QR file.");
+    }
+    return raw;
   }
 
   async function handleSaveStyle() {
@@ -117,66 +322,71 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
     }
   }
 
-  function handleDownloadSvg() {
-    const svg = document.getElementById("user-links-qr-studio");
-    if (!(svg instanceof SVGElement)) return;
-    const source = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
-    const href = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.download = `pinalink-${link.code}.svg`;
-    anchor.click();
-    URL.revokeObjectURL(href);
+  async function handleDownloadSvg() {
+    try {
+      const blob = await getFullSizeBlob("svg");
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = `pinalink-${link.code}.svg`;
+      anchor.click();
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "SVG export failed.");
+    }
   }
 
-  function handleDownloadPng() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const caption = style.caption.trim();
-    if (!caption) {
+  async function handleDownloadPng() {
+    try {
+      const blob = await getFullSizeBlob("png");
+      const canvas = await composeExportCanvas(blob, style);
       const href = canvas.toDataURL("image/png");
       const anchor = document.createElement("a");
       anchor.href = href;
       anchor.download = `pinalink-${link.code}.png`;
       anchor.click();
-      return;
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "PNG export failed.");
     }
+  }
 
-    // Composite caption under QR for print-ready card
-    const pad = 24;
-    const textH = 36;
-    const out = document.createElement("canvas");
-    out.width = canvas.width + pad * 2;
-    out.height = canvas.height + pad * 2 + textH;
-    const ctx = out.getContext("2d");
-    if (!ctx) return;
-    ctx.fillStyle = style.bgColor;
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(canvas, pad, pad);
-    ctx.fillStyle = style.fgColor;
-    ctx.font = "600 16px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(caption, out.width / 2, canvas.height + pad + 24);
-
-    const href = out.toDataURL("image/png");
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.download = `pinalink-${link.code}.png`;
-    anchor.click();
+  async function handleDownloadPdf() {
+    try {
+      const blob = await getFullSizeBlob("png");
+      const canvas = await composeExportCanvas(blob, style);
+      const img = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
+        unit: "pt",
+        format: "a4",
+      });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const maxW = pageW - 72;
+      const maxH = pageH - 72;
+      const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
+      const w = canvas.width * scale;
+      const h = canvas.height * scale;
+      pdf.addImage(img, "PNG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+      pdf.save(`pinalink-${link.code}.pdf`);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "PDF export failed.");
+    }
   }
 
   async function handleCopyPng() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
     try {
-      const blob = await new Promise<Blob | null>((resolve) =>
+      const blob = await getFullSizeBlob("png");
+      const canvas = await composeExportCanvas(blob, style);
+      const outBlob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, "image/png"),
       );
-      if (!blob) throw new Error("Could not export PNG.");
+      if (!outBlob) throw new Error("Could not export PNG.");
       await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
+        new ClipboardItem({ "image/png": outBlob }),
       ]);
       setCopied(true);
       setMessage("");
@@ -216,14 +426,15 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
       type="button"
       onClick={() => setSection(id)}
       className={[
-        "inline-flex min-h-11 flex-1 items-center justify-center gap-tight rounded-full px-snug text-label-sm font-bold transition-colors",
+        "inline-flex min-h-11 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[12px] font-bold transition-colors sm:gap-tight sm:px-snug sm:text-label-sm",
         section === id
           ? "uw-gradient"
           : "text-[var(--uw-muted)] hover:bg-white/5 hover:text-[var(--uw-text)]",
       ].join(" ")}
     >
       {icon}
-      {label}
+      <span className="hidden xs:inline sm:inline">{label}</span>
+      <span className="sm:hidden">{label}</span>
     </button>
   );
 
@@ -253,8 +464,32 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
     };
   }, [scan, contrast]);
 
+  const stickerText = stickerLabel(style.sticker);
+
   return (
     <div className="space-y-cozy text-[var(--uw-text)]">
+      {/* Dynamic QR callout */}
+      <div className="rounded-[1.25rem] border border-[var(--uw-cyan)]/25 bg-[var(--uw-cyan)]/10 p-snug">
+        <p className="flex items-start gap-tight font-bold text-label-sm text-[var(--uw-cyan)]">
+          <Zap size={16} className="mt-0.5 shrink-0" aria-hidden />
+          Dynamic QR
+        </p>
+        <p className="mt-tight text-[12px] text-[var(--uw-muted)] leading-snug">
+          This QR encodes your short link. Change the destination anytime —
+          printed QR stays the same.
+        </p>
+        {onEditDestination ? (
+          <button
+            type="button"
+            onClick={onEditDestination}
+            className="mt-snug inline-flex min-h-11 items-center gap-tight rounded-full bg-[var(--uw-cyan)]/15 px-cozy text-label-sm font-bold text-[var(--uw-cyan)] hover:bg-[var(--uw-cyan)]/25 transition-colors"
+          >
+            <Link2 size={14} aria-hidden />
+            Edit destination
+          </button>
+        ) : null}
+      </div>
+
       {/* Live preview */}
       <div className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-elevated)] p-snug">
         <div className="flex items-center justify-between gap-snug mb-snug">
@@ -272,41 +507,30 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
           )}
         </div>
 
-        <div
-          className="mx-auto w-fit rounded-2xl p-snug shadow-inner"
-          style={{ backgroundColor: style.bgColor }}
-        >
-          <QRCodeSVG
-            id="user-links-qr-studio"
-            value={shortUrl}
-            size={displaySize}
-            level={style.level}
-            fgColor={style.fgColor}
-            bgColor={style.bgColor}
-            marginSize={style.marginSize}
-            imageSettings={
-              imageSettings
-                ? {
-                    ...imageSettings,
-                    height: Math.round(displaySize * style.logoScale),
-                    width: Math.round(displaySize * style.logoScale),
-                  }
-                : undefined
-            }
-            title={`QR for ${shortUrl}`}
-          />
-          {/* Full-size canvas for export */}
-          <div className="sr-only" aria-hidden>
-            <QRCodeCanvas
-              ref={canvasRef}
-              value={shortUrl}
-              size={style.size}
-              level={style.level}
-              fgColor={style.fgColor}
-              bgColor={style.bgColor}
-              marginSize={style.marginSize}
-              imageSettings={imageSettings}
-            />
+        <div className="relative mx-auto w-fit">
+          {stickerText ? (
+            <span className="absolute -top-2 -right-2 z-10 inline-flex min-h-8 items-center rounded-full bg-[var(--uw-cyan)] px-snug text-[10px] font-bold text-[var(--uw-on-accent)] shadow-lg">
+              {stickerText}
+            </span>
+          ) : null}
+          <div className={frameClass(style.frame)}>
+            <div
+              className={
+                style.frame === "brand"
+                  ? "rounded-[1.35rem] bg-white p-3"
+                  : undefined
+              }
+            >
+              <div
+                ref={mountRef}
+                className="flex justify-center [&_canvas]:max-w-full"
+              />
+            </div>
+            {style.frame === "badge" ? (
+              <p className="mt-2 text-center text-[10px] font-bold tracking-widest text-[#007a72]">
+                PINALINK
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -328,9 +552,9 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
         </div>
       </div>
 
-      {/* Section tabs */}
       <div className="flex gap-1 rounded-full bg-[var(--uw-elevated)] p-1">
         {sectionBtn("look", "Look", <Palette size={14} aria-hidden />)}
+        {sectionBtn("shape", "Shape", <Shapes size={14} aria-hidden />)}
         {sectionBtn("logo", "Logo", <ImagePlus size={14} aria-hidden />)}
         {sectionBtn("export", "Export", <Download size={14} aria-hidden />)}
       </div>
@@ -404,19 +628,14 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                   })
                 }
                 className="inline-flex min-h-11 items-center gap-tight rounded-full border border-white/10 bg-[var(--uw-elevated)] px-snug text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/5"
-                title="Swap foreground and background"
               >
                 <ArrowLeftRight size={14} aria-hidden />
                 Invert
               </button>
             </div>
-
             <div className="grid grid-cols-2 gap-snug">
               <div>
-                <label
-                  htmlFor="qr-fg"
-                  className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]"
-                >
+                <label htmlFor="qr-fg" className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
                   Foreground
                 </label>
                 <div className="flex items-center gap-tight">
@@ -431,15 +650,12 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                     type="text"
                     value={style.fgColor}
                     onChange={(e) => patchStyle({ fgColor: e.target.value })}
-                    className="min-h-11 flex-1 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-snug font-mono-label text-label-sm text-[var(--uw-text)] outline-none focus:border-[var(--uw-cyan)]/50"
+                    className="min-h-11 flex-1 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-snug font-mono-label text-label-sm text-[var(--uw-text)] outline-none"
                   />
                 </div>
               </div>
               <div>
-                <label
-                  htmlFor="qr-bg"
-                  className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]"
-                >
+                <label htmlFor="qr-bg" className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
                   Background
                 </label>
                 <div className="flex items-center gap-tight">
@@ -454,7 +670,7 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                     type="text"
                     value={style.bgColor}
                     onChange={(e) => patchStyle({ bgColor: e.target.value })}
-                    className="min-h-11 flex-1 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-snug font-mono-label text-label-sm text-[var(--uw-text)] outline-none focus:border-[var(--uw-cyan)]/50"
+                    className="min-h-11 flex-1 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-snug font-mono-label text-label-sm text-[var(--uw-text)] outline-none"
                   />
                 </div>
               </div>
@@ -475,18 +691,14 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                     "min-h-11 min-w-11 rounded-full border px-snug font-bold transition-colors",
                     style.size === preset.size
                       ? "uw-gradient border-transparent"
-                      : "border-white/10 text-[var(--uw-muted)] hover:text-[var(--uw-text)]",
+                      : "border-white/10 text-[var(--uw-muted)]",
                   ].join(" ")}
                 >
                   {preset.label}
                 </button>
               ))}
             </div>
-            <label htmlFor="qr-size" className="sr-only">
-              Custom size
-            </label>
             <input
-              id="qr-size"
               type="range"
               min={128}
               max={400}
@@ -494,10 +706,8 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
               value={style.size}
               onChange={(e) => patchStyle({ size: Number(e.target.value) })}
               className="w-full accent-[var(--uw-cyan)] min-h-11"
+              aria-label="QR size"
             />
-            <p className="mt-tight text-[11px] text-[var(--uw-muted)]">
-              Export size: {style.size}px
-            </p>
           </div>
 
           <div>
@@ -514,18 +724,13 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                     type="button"
                     onClick={() => patchStyle({ level })}
                     className={[
-                      "rounded-2xl border px-snug py-snug text-left min-h-11 transition-colors",
+                      "rounded-2xl border px-snug py-snug text-left min-h-11",
                       active
                         ? "border-[var(--uw-cyan)]/50 bg-[var(--uw-cyan)]/10"
                         : "border-white/10 hover:bg-white/5",
                     ].join(" ")}
                   >
-                    <span
-                      className={[
-                        "block font-bold text-label-sm",
-                        active ? "text-[var(--uw-cyan)]" : "text-[var(--uw-text)]",
-                      ].join(" ")}
-                    >
+                    <span className={`block font-bold text-label-sm ${active ? "text-[var(--uw-cyan)]" : ""}`}>
                       {level} · {meta.label}
                     </span>
                     <span className="block text-[11px] text-[var(--uw-muted)]">
@@ -538,34 +743,7 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
           </div>
 
           <div>
-            <label
-              htmlFor="qr-margin"
-              className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]"
-            >
-              Quiet zone ({style.marginSize})
-            </label>
-            <input
-              id="qr-margin"
-              type="range"
-              min={0}
-              max={6}
-              step={1}
-              value={style.marginSize}
-              onChange={(e) =>
-                patchStyle({ marginSize: Number(e.target.value) })
-              }
-              className="w-full accent-[var(--uw-cyan)] min-h-11"
-            />
-            <p className="mt-tight text-[11px] text-[var(--uw-muted)]">
-              White border around code. Print: use 3–4.
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="qr-caption"
-              className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]"
-            >
+            <label htmlFor="qr-caption" className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
               Caption (optional)
             </label>
             <input
@@ -575,8 +753,135 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
               value={style.caption}
               onChange={(e) => patchStyle({ caption: e.target.value })}
               placeholder="e.g. Scan for menu"
-              className="w-full min-h-12 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-cozy text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] outline-none focus:border-[var(--uw-cyan)]/50"
+              className="w-full min-h-12 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-cozy text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] outline-none"
             />
+          </div>
+        </div>
+      ) : null}
+
+      {section === "shape" ? (
+        <div className="space-y-cozy">
+          <div>
+            <p className="mb-tight font-label-sm text-label-sm text-[var(--uw-muted)] flex items-center gap-tight">
+              <Shapes size={14} aria-hidden />
+              Module shape
+            </p>
+            <div className="grid grid-cols-2 gap-tight">
+              {QR_MODULE_SHAPES.map((shape) => (
+                <button
+                  key={shape.id}
+                  type="button"
+                  onClick={() => patchStyle({ moduleShape: shape.id })}
+                  className={[
+                    "rounded-2xl border px-snug py-snug text-left min-h-11",
+                    style.moduleShape === shape.id
+                      ? "border-[var(--uw-cyan)]/50 bg-[var(--uw-cyan)]/10"
+                      : "border-white/10 hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  <span className="block font-bold text-label-sm">{shape.label}</span>
+                  <span className="block text-[11px] text-[var(--uw-muted)]">
+                    {shape.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
+              Finder eyes
+            </p>
+            <div className="flex flex-wrap gap-tight">
+              {QR_EYE_SHAPES.map((eye) => (
+                <button
+                  key={eye.id}
+                  type="button"
+                  onClick={() => patchStyle({ eyeShape: eye.id })}
+                  className={[
+                    "min-h-11 rounded-full border px-cozy font-bold text-label-sm",
+                    style.eyeShape === eye.id
+                      ? "uw-gradient border-transparent"
+                      : "border-white/10 text-[var(--uw-muted)]",
+                  ].join(" ")}
+                >
+                  {eye.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
+              Canvas shape
+            </p>
+            <div className="flex gap-tight">
+              {(["square", "circle"] as const).map((shape) => (
+                <button
+                  key={shape}
+                  type="button"
+                  onClick={() => patchStyle({ canvasShape: shape })}
+                  className={[
+                    "min-h-11 flex-1 rounded-full border px-cozy font-bold capitalize",
+                    style.canvasShape === shape
+                      ? "uw-gradient border-transparent"
+                      : "border-white/10 text-[var(--uw-muted)]",
+                  ].join(" ")}
+                >
+                  {shape}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-tight font-label-sm text-label-sm text-[var(--uw-muted)] flex items-center gap-tight">
+              <Frame size={14} aria-hidden />
+              Frames
+            </p>
+            <div className="grid grid-cols-2 gap-tight">
+              {QR_FRAMES.map((frame) => (
+                <button
+                  key={frame.id}
+                  type="button"
+                  onClick={() => patchStyle({ frame: frame.id })}
+                  className={[
+                    "rounded-2xl border px-snug py-snug text-left min-h-11",
+                    style.frame === frame.id
+                      ? "border-[var(--uw-cyan)]/50 bg-[var(--uw-cyan)]/10"
+                      : "border-white/10 hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  <span className="block font-bold text-label-sm">{frame.label}</span>
+                  <span className="block text-[11px] text-[var(--uw-muted)]">
+                    {frame.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
+              Stickers
+            </p>
+            <div className="flex flex-wrap gap-tight">
+              {QR_STICKERS.map((sticker) => (
+                <button
+                  key={sticker.id}
+                  type="button"
+                  onClick={() => patchStyle({ sticker: sticker.id })}
+                  className={[
+                    "min-h-11 rounded-full border px-cozy font-bold text-label-sm",
+                    style.sticker === sticker.id
+                      ? "uw-gradient border-transparent"
+                      : "border-white/10 text-[var(--uw-muted)]",
+                  ].join(" ")}
+                >
+                  {sticker.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}
@@ -584,7 +889,6 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
       {section === "logo" ? (
         <div className="space-y-cozy">
           <label
-            ref={dropRef}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOver(true);
@@ -593,8 +897,7 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
             onDrop={(e) => {
               e.preventDefault();
               setDragOver(false);
-              const file = e.dataTransfer.files?.[0] ?? null;
-              handleLogoFile(file);
+              handleLogoFile(e.dataTransfer.files?.[0] ?? null);
             }}
             className={[
               "flex min-h-32 cursor-pointer flex-col items-center justify-center gap-tight rounded-[1.25rem] border border-dashed px-cozy py-roomy text-center transition-colors",
@@ -603,14 +906,8 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                 : "border-white/15 bg-[var(--uw-elevated)] hover:border-[var(--uw-cyan)]/40",
             ].join(" ")}
           >
-            <ImagePlus
-              size={28}
-              className="text-[var(--uw-cyan)]"
-              aria-hidden
-            />
-            <span className="font-bold text-body-md text-[var(--uw-text)]">
-              Drop logo here or click
-            </span>
+            <ImagePlus size={28} className="text-[var(--uw-cyan)]" aria-hidden />
+            <span className="font-bold text-body-md">Drop logo here or click</span>
             <span className="text-label-sm text-[var(--uw-muted)]">
               PNG / JPG / WebP / SVG · max 800KB
             </span>
@@ -618,9 +915,7 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
               type="file"
               accept="image/png,image/jpeg,image/webp,image/svg+xml"
               className="sr-only"
-              onChange={(e) =>
-                handleLogoFile(e.target.files?.[0] ?? null)
-              }
+              onChange={(e) => handleLogoFile(e.target.files?.[0] ?? null)}
             />
           </label>
 
@@ -633,11 +928,9 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                   className="size-14 rounded-xl object-contain bg-white"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-label-sm text-[var(--uw-text)]">
-                    Logo attached
-                  </p>
+                  <p className="font-bold text-label-sm">Logo attached</p>
                   <p className="text-[11px] text-[var(--uw-muted)]">
-                    ECC auto-boosted to Max when uploaded
+                    ECC auto-boosted to Max
                   </p>
                 </div>
                 <button
@@ -649,12 +942,8 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                   <X size={18} aria-hidden />
                 </button>
               </div>
-
               <div>
-                <label
-                  htmlFor="qr-logo-scale"
-                  className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]"
-                >
+                <label htmlFor="qr-logo-scale" className="block mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
                   Logo size ({Math.round(style.logoScale * 100)}%)
                 </label>
                 <input
@@ -669,18 +958,14 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
                   }
                   className="w-full accent-[var(--uw-cyan)] min-h-11"
                 />
-                <p className="mt-tight text-[11px] text-[var(--uw-muted)]">
-                  Keep under ~25% for reliable scanning.
-                </p>
               </div>
-
               <label className="flex min-h-11 cursor-pointer items-center justify-between gap-snug rounded-2xl border border-white/10 bg-[var(--uw-elevated)] px-cozy">
                 <span>
-                  <span className="block font-bold text-label-sm text-[var(--uw-text)]">
+                  <span className="block font-bold text-label-sm">
                     Clear modules under logo
                   </span>
                   <span className="block text-[11px] text-[var(--uw-muted)]">
-                    Excavate — cleaner look, better scans
+                    Excavate — cleaner scans
                   </span>
                 </span>
                 <input
@@ -702,37 +987,39 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
       {section === "export" ? (
         <div className="space-y-cozy">
           <p className="text-body-md text-[var(--uw-muted)]">
-            Download or copy the current preview. Save style first if you want
-            this look next time you open the link.
+            Download PNG, SVG, or PDF. Frame + sticker bake into PNG/PDF.
           </p>
           <div className="grid grid-cols-1 gap-tight">
             <button
               type="button"
-              onClick={handleDownloadPng}
+              onClick={() => void handleDownloadPng()}
               className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full uw-gradient font-bold hover:brightness-110 transition-all"
             >
               <Download size={16} aria-hidden />
               Download PNG
-              {style.caption.trim() ? " + caption" : ""}
             </button>
             <button
               type="button"
-              onClick={handleDownloadSvg}
-              className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full border border-white/10 bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+              onClick={() => void handleDownloadSvg()}
+              className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full border border-white/10 bg-white/5 font-bold hover:bg-white/10"
             >
               <Download size={16} aria-hidden />
               Download SVG
             </button>
             <button
               type="button"
-              onClick={() => void handleCopyPng()}
-              className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full border border-white/10 bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+              onClick={() => void handleDownloadPdf()}
+              className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full border border-white/10 bg-white/5 font-bold hover:bg-white/10"
             >
-              {copied ? (
-                <Check size={16} aria-hidden />
-              ) : (
-                <Copy size={16} aria-hidden />
-              )}
+              <FileType size={16} aria-hidden />
+              Download PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCopyPng()}
+              className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full border border-white/10 bg-white/5 font-bold hover:bg-white/10"
+            >
+              {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
               {copied ? "Copied to clipboard" : "Copy PNG"}
             </button>
           </div>
@@ -768,7 +1055,7 @@ const QrStudioPanel = ({ link, shortUrl, onSaved }: QrStudioPanelProps) => {
             setStyle({ ...DEFAULT_QR_STYLE });
             setMessage("");
           }}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-tight rounded-full text-[var(--uw-muted)] font-bold hover:bg-white/5 hover:text-[var(--uw-text)] transition-colors"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-tight rounded-full text-[var(--uw-muted)] font-bold hover:bg-white/5"
         >
           <RotateCcw size={16} aria-hidden />
           Reset to defaults

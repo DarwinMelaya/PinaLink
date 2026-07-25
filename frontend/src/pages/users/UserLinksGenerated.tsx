@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
+  ArrowLeft,
   Copy,
   Check,
   ExternalLink,
@@ -15,6 +16,7 @@ import {
   Clock,
   Activity,
   LayoutDashboard,
+  Sparkles,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { getSession } from "../../utils/authApi";
@@ -23,6 +25,7 @@ import {
   isLinkExpired,
   isLinkLive,
   parseQrStyle,
+  QR_FEATURE_HIGHLIGHTS,
 } from "../../utils/qrStyle";
 import {
   listShortLinksByUser,
@@ -226,6 +229,13 @@ const UserLinksGenerated = () => {
     setStudioTab(tab);
   }
 
+  const focusMode = studioTab === "edit" || studioTab === "qr";
+
+  useEffect(() => {
+    if (!focusMode) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [focusMode, selectedId]);
+
   const tabBtn = (tab: StudioTab, label: string, icon: ReactNode) => (
     <button
       type="button"
@@ -305,39 +315,75 @@ const UserLinksGenerated = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-cozy sm:flex-row sm:items-end sm:justify-between uw-rise-delay-1">
-        <div className="min-w-0">
-          <h1 className="text-[clamp(28px,5vw,42px)] font-bold tracking-tight uppercase leading-none uw-gradient-text">
-            My Links
-          </h1>
-          <p className="mt-snug text-body-md text-[var(--uw-muted)] max-w-2xl">
-            Customize vanity codes, pause links, and design branded QR codes.
-          </p>
+      {!focusMode ? (
+        <div className="flex flex-col gap-cozy sm:flex-row sm:items-end sm:justify-between uw-rise-delay-1">
+          <div className="min-w-0">
+            <h1 className="text-[clamp(28px,5vw,42px)] font-bold tracking-tight uppercase leading-none uw-gradient-text">
+              My Links
+            </h1>
+            <p className="mt-snug text-body-md text-[var(--uw-muted)] max-w-2xl">
+              Customize vanity codes, pause links, and design branded QR codes.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-tight">
+            <span className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-muted)]">
+              Sort:{" "}
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="ml-1 bg-transparent text-[var(--uw-text)] outline-none cursor-pointer"
+                aria-label="Sort links"
+              >
+                <option value="newest" className="bg-[var(--uw-card)]">
+                  Newest
+                </option>
+                <option value="clicks" className="bg-[var(--uw-card)]">
+                  Most clicks
+                </option>
+                <option value="alpha" className="bg-[var(--uw-card)]">
+                  A–Z code
+                </option>
+              </select>
+            </span>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-tight">
-          <span className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-muted)]">
-            Sort:{" "}
-            <select
-              value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="ml-1 bg-transparent text-[var(--uw-text)] outline-none cursor-pointer"
-              aria-label="Sort links"
-            >
-              <option value="newest" className="bg-[var(--uw-card)]">
-                Newest
-              </option>
-              <option value="clicks" className="bg-[var(--uw-card)]">
-                Most clicks
-              </option>
-              <option value="alpha" className="bg-[var(--uw-card)]">
-                A–Z code
-              </option>
-            </select>
-          </span>
-        </div>
-      </div>
+      ) : null}
 
-      {myLinks.length > 0 ? (
+      {!focusMode ? (
+        <div className="rounded-[1.75rem] border border-white/5 bg-[var(--uw-card)] p-cozy uw-rise-delay-2">
+          <div className="flex items-start gap-snug mb-cozy">
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl uw-gradient">
+              <Sparkles size={18} aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-bold text-body-md text-[var(--uw-text)]">
+                Advanced QR Code Features
+              </h2>
+              <p className="mt-tight text-label-sm text-[var(--uw-muted)]">
+                Open any link → QR tab. Logo, shapes, frames, PNG/SVG/PDF, dynamic
+                destination.
+              </p>
+            </div>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-snug">
+            {QR_FEATURE_HIGHLIGHTS.map((feature) => (
+              <li
+                key={feature.title}
+                className="rounded-2xl border border-white/5 bg-[var(--uw-elevated)] px-cozy py-snug"
+              >
+                <p className="font-bold text-label-sm text-[var(--uw-cyan)]">
+                  {feature.title}
+                </p>
+                <p className="mt-tight text-[12px] text-[var(--uw-muted)] leading-snug">
+                  {feature.detail}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {!focusMode && myLinks.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-gutter uw-rise-delay-2">
           {[
             {
@@ -425,8 +471,64 @@ const UserLinksGenerated = () => {
         </div>
       ) : null}
 
-      {status !== "loading" && myLinks.length > 0 ? (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,460px)] gap-gutter items-start">
+      {status !== "loading" && myLinks.length > 0 && focusMode && selected && selectedShortUrl ? (
+        <section className="mx-auto w-full max-w-4xl space-y-cozy uw-rise">
+          <div className="flex flex-col gap-snug sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={() => setStudioTab("overview")}
+              className="inline-flex min-h-11 w-fit items-center gap-tight rounded-full bg-[var(--uw-card)] px-cozy font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors border border-white/5"
+            >
+              <ArrowLeft size={16} aria-hidden />
+              Back to links
+            </button>
+            <p className="font-mono-label text-label-sm text-[var(--uw-lime)] font-bold break-all sm:text-right">
+              {displayHost(selectedShortUrl)}
+            </p>
+          </div>
+
+          <div className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy sm:p-roomy border border-white/5 space-y-cozy">
+            <div className="min-w-0">
+              <h2 className="font-bold text-[clamp(20px,3vw,28px)] text-[var(--uw-text)] tracking-tight">
+                {selected.title || "Link studio"}
+              </h2>
+              <p className="mt-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
+                {selectedLive
+                  ? "Live · redirects work"
+                  : "Not live · redirect blocked"}
+                {" · "}
+                {studioTab === "edit" ? "Edit details" : "QR design"}
+              </p>
+            </div>
+
+            <div className="flex gap-1 rounded-full bg-[var(--uw-elevated)] p-1 max-w-md">
+              {tabBtn("overview", "Info", <Link2 size={16} aria-hidden />)}
+              {tabBtn("edit", "Edit", <Settings2 size={16} aria-hidden />)}
+              {tabBtn("qr", "QR", <QrCode size={16} aria-hidden />)}
+            </div>
+
+            {studioTab === "edit" ? (
+              <LinkEditorPanel
+                link={selected}
+                onSaved={upsertLink}
+                onDeleted={removeLink}
+              />
+            ) : null}
+
+            {studioTab === "qr" ? (
+              <QrStudioPanel
+                link={selected}
+                shortUrl={selectedShortUrl}
+                onSaved={upsertLink}
+                onEditDestination={() => setStudioTab("edit")}
+              />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {status !== "loading" && myLinks.length > 0 && !focusMode ? (
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] gap-gutter items-start">
           <div className="space-y-snug min-w-0">
             <div className="flex flex-col gap-snug sm:flex-row">
               <label className="relative block flex-1">
@@ -670,96 +772,77 @@ const UserLinksGenerated = () => {
                 </p>
               </div>
 
-              <div className="flex gap-1 rounded-full bg-[var(--uw-elevated)] p-1">
-                {tabBtn("overview", "Info", <Link2 size={16} aria-hidden />)}
-                {tabBtn("edit", "Edit", <Settings2 size={16} aria-hidden />)}
-                {tabBtn("qr", "QR", <QrCode size={16} aria-hidden />)}
+              <dl className="space-y-snug text-body-md">
+                <div>
+                  <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
+                    Destination
+                  </dt>
+                  <dd className="break-all text-[var(--uw-text)]">
+                    {selected.original_url}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
+                    Clicks
+                  </dt>
+                  <dd className="text-[var(--uw-text)] font-bold">
+                    {selected.click_count}
+                  </dd>
+                </div>
+                {selected.notes ? (
+                  <div>
+                    <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
+                      Notes
+                    </dt>
+                    <dd className="text-[var(--uw-text)] whitespace-pre-wrap">
+                      {selected.notes}
+                    </dd>
+                  </div>
+                ) : null}
+                {selected.expires_at ? (
+                  <div>
+                    <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
+                      Expires
+                    </dt>
+                    <dd className="text-[var(--uw-text)]">
+                      {new Date(selected.expires_at).toLocaleString()}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void handleCopy(selectedShortUrl, selected.code)
+                }
+                className="inline-flex min-h-11 w-full items-center justify-center gap-tight rounded-full uw-gradient px-cozy font-bold hover:brightness-110 transition-all"
+              >
+                {copiedCode === selected.code ? (
+                  <Check size={16} aria-hidden />
+                ) : (
+                  <Copy size={16} aria-hidden />
+                )}
+                {copiedCode === selected.code ? "Copied" : "Copy short link"}
+              </button>
+              <div className="grid grid-cols-2 gap-tight">
+                <button
+                  type="button"
+                  onClick={() => setStudioTab("edit")}
+                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+                >
+                  <Settings2 size={16} aria-hidden />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStudioTab("qr")}
+                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+                >
+                  <QrCode size={16} aria-hidden />
+                  QR
+                </button>
               </div>
-
-              {studioTab === "overview" ? (
-                <div className="space-y-cozy">
-                  <dl className="space-y-snug text-body-md">
-                    <div>
-                      <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
-                        Destination
-                      </dt>
-                      <dd className="break-all text-[var(--uw-text)]">
-                        {selected.original_url}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
-                        Clicks
-                      </dt>
-                      <dd className="text-[var(--uw-text)] font-bold">
-                        {selected.click_count}
-                      </dd>
-                    </div>
-                    {selected.notes ? (
-                      <div>
-                        <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
-                          Notes
-                        </dt>
-                        <dd className="text-[var(--uw-text)] whitespace-pre-wrap">
-                          {selected.notes}
-                        </dd>
-                      </div>
-                    ) : null}
-                    {selected.expires_at ? (
-                      <div>
-                        <dt className="font-label-sm text-label-sm text-[var(--uw-muted)]">
-                          Expires
-                        </dt>
-                        <dd className="text-[var(--uw-text)]">
-                          {new Date(selected.expires_at).toLocaleString()}
-                        </dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleCopy(selectedShortUrl, selected.code)
-                    }
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-tight rounded-full uw-gradient px-cozy font-bold hover:brightness-110 transition-all"
-                  >
-                    {copiedCode === selected.code ? (
-                      <Check size={16} aria-hidden />
-                    ) : (
-                      <Copy size={16} aria-hidden />
-                    )}
-                    {copiedCode === selected.code
-                      ? "Copied"
-                      : "Copy short link"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStudioTab("qr")}
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
-                  >
-                    <QrCode size={16} aria-hidden />
-                    Open QR studio
-                  </button>
-                </div>
-              ) : null}
-
-              {studioTab === "edit" ? (
-                <div className="rounded-2xl bg-white text-on-surface p-snug">
-                  <LinkEditorPanel
-                    link={selected}
-                    onSaved={upsertLink}
-                    onDeleted={removeLink}
-                  />
-                </div>
-              ) : null}
-
-              {studioTab === "qr" ? (
-                <QrStudioPanel
-                  link={selected}
-                  shortUrl={selectedShortUrl}
-                  onSaved={upsertLink}
-                />
-              ) : null}
             </aside>
           ) : null}
         </div>

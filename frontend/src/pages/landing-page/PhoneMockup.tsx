@@ -24,11 +24,7 @@ const PhoneMockup = () => {
       <motion.div
         className="phone-float"
         style={{ animation: "none" }}
-        animate={
-          reduce
-            ? undefined
-            : { y: [0, -14, 0] }
-        }
+        animate={reduce ? undefined : { y: [0, -14, 0] }}
         transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
       >
         <motion.div
