@@ -1,21 +1,50 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { homePathForRole, loginWithEmail, signInWithGoogle } from "../../utils/authApi";
 
 const LOGO_SRC = "/img/pinalink_logo.png";
 
 const fieldClass =
   "w-full min-h-12 pl-11 pr-4 bg-surface-container rounded-lg border border-outline-variant text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all";
 
+type SubmitStatus = "idle" | "loading" | "error";
+
 const Login = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<SubmitStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [oauthLoading, setOauthLoading] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // ASSUMPTION: auth backend not wired yet — form UI only.
+    setErrorMessage("");
+    setStatus("loading");
+
+    try {
+      const profile = await loginWithEmail({ email, password });
+      // ASSUMPTION: remember checkbox UI-only for now (Supabase already persists session).
+      void remember;
+      navigate(homePathForRole(profile.role), { replace: true });
+    } catch (err) {
+      setStatus("error");
+      setErrorMessage(err instanceof Error ? err.message : "Sign in failed.");
+    }
+  }
+
+  async function handleGoogle() {
+    setErrorMessage("");
+    setOauthLoading(true);
+    try {
+      await signInWithGoogle("USER");
+    } catch (err) {
+      setOauthLoading(false);
+      setErrorMessage(err instanceof Error ? err.message : "Google sign-in failed.");
+    }
   }
 
   return (
@@ -146,16 +175,27 @@ const Login = () => {
               </span>
             </label>
 
+            {errorMessage ? (
+              <p className="text-error text-body-md" role="alert">
+                {errorMessage}
+              </p>
+            ) : null}
+
             <button
               type="submit"
-              className="group w-full min-h-12 bg-primary text-on-primary rounded-lg font-bold text-body-md flex items-center justify-center gap-tight hover:bg-surface-tint active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
+              disabled={status === "loading" || oauthLoading}
+              className="group w-full min-h-12 bg-primary text-on-primary rounded-lg font-bold text-body-md flex items-center justify-center gap-tight hover:bg-surface-tint active:scale-[0.98] transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>Sign In to Dashboard</span>
-              <ArrowRight
-                size={18}
-                className="transition-transform group-hover:translate-x-0.5"
-                aria-hidden
-              />
+              <span>
+                {status === "loading" ? "Signing in…" : "Sign In to Dashboard"}
+              </span>
+              {status !== "loading" ? (
+                <ArrowRight
+                  size={18}
+                  className="transition-transform group-hover:translate-x-0.5"
+                  aria-hidden
+                />
+              ) : null}
             </button>
           </form>
 
@@ -166,22 +206,15 @@ const Login = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-snug">
-            <button
-              type="button"
-              className="min-h-12 px-cozy border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low active:scale-[0.98] transition-all inline-flex items-center justify-center gap-tight text-body-md font-medium text-on-surface"
-            >
-              <GoogleIcon />
-              Google
-            </button>
-            <button
-              type="button"
-              className="min-h-12 px-cozy border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low active:scale-[0.98] transition-all inline-flex items-center justify-center gap-tight text-body-md font-medium text-on-surface"
-            >
-              <GitHubIcon />
-              GitHub
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={oauthLoading || status === "loading"}
+            className="w-full min-h-12 px-cozy border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low active:scale-[0.98] transition-all inline-flex items-center justify-center gap-tight text-body-md font-medium text-on-surface disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <GoogleIcon />
+            {oauthLoading ? "Redirecting…" : "Continue with Google"}
+          </button>
         </div>
 
         <p className="text-center text-body-md text-on-surface-variant">
@@ -201,6 +234,8 @@ const Login = () => {
     </div>
   );
 };
+
+export default Login;
 
 function GoogleIcon() {
   return (
@@ -224,13 +259,3 @@ function GoogleIcon() {
     </svg>
   );
 }
-
-function GitHubIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 7.5c.85 0 1.71.12 2.51.34 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.58 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.48A10.05 10.05 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
-    </svg>
-  );
-}
-
-export default Login;

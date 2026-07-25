@@ -9,7 +9,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Database only — login/signup use the profiles table, not Supabase Auth
-const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "");
+const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: "pkce",
+  },
+});
 
 export default supabase;

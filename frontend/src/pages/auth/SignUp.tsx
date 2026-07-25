@@ -1,13 +1,22 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight, Shield } from "lucide-react";
+import {
+  registerProfile,
+  homePathForRole,
+  signInWithGoogle,
+  type UserRole,
+} from "../../utils/authApi";
 
 const LOGO_SRC = "/img/pinalink_logo.png";
 
 const fieldClass =
   "w-full min-h-12 pl-11 pr-4 bg-surface-container rounded-lg border border-outline-variant text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all";
 
+type SubmitStatus = "idle" | "loading" | "error";
+
 const SignUp = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -15,21 +24,63 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("USER");
+  const [status, setStatus] = useState<SubmitStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
+  const [oauthLoading, setOauthLoading] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
+    setInfoMessage("");
 
     if (password !== confirmPassword) {
+      setStatus("error");
       setErrorMessage("Passwords do not match.");
       return;
     }
     if (!acceptTerms) {
+      setStatus("error");
       setErrorMessage("Accept the terms to continue.");
       return;
     }
-    // ASSUMPTION: auth backend not wired yet — form UI only.
+
+    setStatus("loading");
+    try {
+      const profile = await registerProfile({
+        name,
+        email,
+        password,
+        role,
+      });
+      // ASSUMPTION: public Admin signup allowed for now — lock down later.
+      navigate(homePathForRole(profile.role), { replace: true });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Registration failed.";
+      // Confirm-email flow: treat as info, not hard fail
+      if (message.toLowerCase().includes("check your email")) {
+        setStatus("idle");
+        setInfoMessage(message);
+        return;
+      }
+      setStatus("error");
+      setErrorMessage(message);
+    }
+  }
+
+  async function handleGoogle() {
+    setErrorMessage("");
+    setInfoMessage("");
+    setOauthLoading(true);
+    try {
+      // ASSUMPTION: Google signup uses selected account type (USER/ADMIN).
+      await signInWithGoogle(role);
+    } catch (err) {
+      setOauthLoading(false);
+      setErrorMessage(err instanceof Error ? err.message : "Google sign-in failed.");
+    }
   }
 
   return (
@@ -73,6 +124,42 @@ const SignUp = () => {
 
         <div className="w-full bg-surface-container-lowest rounded-xl border border-outline-variant soft-float p-roomy transition-standard">
           <form className="space-y-cozy" onSubmit={handleSubmit} noValidate>
+            <fieldset>
+              <legend className="block mb-tight font-label-sm text-label-sm text-on-surface-variant">
+                Account type
+              </legend>
+              <div className="grid grid-cols-2 gap-snug" role="radiogroup" aria-label="Account type">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={role === "USER"}
+                  onClick={() => setRole("USER")}
+                  className={`min-h-12 rounded-lg border px-cozy inline-flex items-center justify-center gap-tight text-body-md font-medium transition-all ${
+                    role === "USER"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"
+                  }`}
+                >
+                  <User size={18} aria-hidden />
+                  User
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={role === "ADMIN"}
+                  onClick={() => setRole("ADMIN")}
+                  className={`min-h-12 rounded-lg border px-cozy inline-flex items-center justify-center gap-tight text-body-md font-medium transition-all ${
+                    role === "ADMIN"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"
+                  }`}
+                >
+                  <Shield size={18} aria-hidden />
+                  Admin
+                </button>
+              </div>
+            </fieldset>
+
             <div>
               <label
                 htmlFor="signup-name"
@@ -234,16 +321,27 @@ const SignUp = () => {
               </p>
             ) : null}
 
+            {infoMessage ? (
+              <p className="text-secondary text-body-md" role="status">
+                {infoMessage}
+              </p>
+            ) : null}
+
             <button
               type="submit"
-              className="group w-full min-h-12 bg-primary text-on-primary rounded-lg font-bold text-body-md flex items-center justify-center gap-tight hover:bg-surface-tint active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
+              disabled={status === "loading" || oauthLoading}
+              className="group w-full min-h-12 bg-primary text-on-primary rounded-lg font-bold text-body-md flex items-center justify-center gap-tight hover:bg-surface-tint active:scale-[0.98] transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>Create Free Account</span>
-              <ArrowRight
-                size={18}
-                className="transition-transform group-hover:translate-x-0.5"
-                aria-hidden
-              />
+              <span>
+                {status === "loading" ? "Creating account..." : "Create Free Account"}
+              </span>
+              {status !== "loading" ? (
+                <ArrowRight
+                  size={18}
+                  className="transition-transform group-hover:translate-x-0.5"
+                  aria-hidden
+                />
+              ) : null}
             </button>
           </form>
 
@@ -254,22 +352,15 @@ const SignUp = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-snug">
-            <button
-              type="button"
-              className="min-h-12 px-cozy border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low active:scale-[0.98] transition-all inline-flex items-center justify-center gap-tight text-body-md font-medium text-on-surface"
-            >
-              <GoogleIcon />
-              Google
-            </button>
-            <button
-              type="button"
-              className="min-h-12 px-cozy border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low active:scale-[0.98] transition-all inline-flex items-center justify-center gap-tight text-body-md font-medium text-on-surface"
-            >
-              <GitHubIcon />
-              GitHub
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={oauthLoading || status === "loading"}
+            className="w-full min-h-12 px-cozy border border-outline-variant rounded-lg bg-surface-container-lowest hover:bg-surface-container-low active:scale-[0.98] transition-all inline-flex items-center justify-center gap-tight text-body-md font-medium text-on-surface disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <GoogleIcon />
+            {oauthLoading ? "Redirecting…" : "Continue with Google"}
+          </button>
         </div>
 
         <p className="text-center text-body-md text-on-surface-variant">
@@ -289,6 +380,8 @@ const SignUp = () => {
     </div>
   );
 };
+
+export default SignUp;
 
 function GoogleIcon() {
   return (
@@ -312,13 +405,3 @@ function GoogleIcon() {
     </svg>
   );
 }
-
-function GitHubIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 7.5c.85 0 1.71.12 2.51.34 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.58 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.48A10.05 10.05 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
-    </svg>
-  );
-}
-
-export default SignUp;

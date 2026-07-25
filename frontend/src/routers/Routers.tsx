@@ -4,6 +4,7 @@ import {
   HomePage,
   Login,
   SignUp,
+  AuthCallback,
   AdminDashboard,
   AdminUser,
 } from "../pages";
@@ -18,6 +19,7 @@ const Routers = () => {
         {/* Auth routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         {/* Admin routes */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/user" element={<AdminUser />} />

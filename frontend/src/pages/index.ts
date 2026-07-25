@@ -7,6 +7,7 @@ export { default as HomePage } from "./home/HomePage";
 // auth pages
 export { default as Login } from "./auth/Login";
 export { default as SignUp } from "./auth/SignUp";
+export { default as AuthCallback } from "./auth/AuthCallback";
 
 // admin pages
 export { default as AdminDashboard } from "./admin/AdminDashboard";

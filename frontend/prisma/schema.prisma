@@ -6,6 +6,24 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+/// App accounts. Runtime reads/writes go through Supabase JS (Vite SPA), not Prisma Client.
+/// Passwords live in Supabase Auth; profiles.password_hash is unused for Auth users.
+model Profile {
+  id           String   @id @default(uuid())
+  email        String   @unique @db.VarChar(255)
+  name         String   @db.VarChar(120)
+  passwordHash String?  @map("password_hash") @db.Text
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("profiles")
+}
+
 /// Short URL records. Runtime reads/writes go through Supabase JS (Vite SPA).
 model ShortLink {
   // uuid() also usable at DB via gen_random_uuid(); SPA sends id because Supabase skips Prisma defaults
