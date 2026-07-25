@@ -8,6 +8,8 @@ import {
   AdminDashboard,
   AdminUser,
 } from "../pages";
+import ProtectedRoute from "../components/security/ProtectedRoute";
+import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
 
 const Routers = () => {
   return (
@@ -20,9 +22,19 @@ const Routers = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        {/* Admin routes */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/user" element={<AdminUser />} />
+        {/* Admin console — sidebar layout via ProtectedRoute */}
+        <Route path="/admin" element={<ProtectedRoute role="ADMIN" />}>
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="user" element={<AdminUser />} />
+          <Route
+            path="analytics"
+            element={<AdminPlaceholder title="Analytics" />}
+          />
+          <Route
+            path="settings"
+            element={<AdminPlaceholder title="Settings" />}
+          />
+        </Route>
       </Routes>
     </Router>
   );
