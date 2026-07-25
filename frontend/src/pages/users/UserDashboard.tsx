@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  Activity,
   ArrowDownRight,
   ArrowUpRight,
+  BadgeCheck,
   Copy,
   Check,
   Download,
   LayoutDashboard,
   Link2,
   MousePointerClick,
-  Search,
+  QrCode,
+  ShieldCheck,
 } from "lucide-react";
 import { getSession } from "../../utils/authApi";
 import { buildShortUrl, normalizeUrl } from "../../utils/shortLink";
@@ -21,6 +22,7 @@ import {
   type ShortLinkRow,
 } from "../../utils/shortLinkApi";
 import { isLinkLive } from "../../utils/qrStyle";
+import { listCertificatesByUser } from "../../utils/certificateApi";
 
 type ShortenStatus = "idle" | "loading" | "success" | "error";
 
@@ -108,6 +110,8 @@ const UserDashboard = () => {
   const [result, setResult] = useState<ShortenResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [links, setLinks] = useState<ShortLinkRow[]>([]);
+  const [certCount, setCertCount] = useState(0);
+  const [certScans, setCertScans] = useState(0);
 
   const profile = getSession();
   const displayName = profile?.name ?? "User";
@@ -124,6 +128,8 @@ const UserDashboard = () => {
   useEffect(() => {
     if (!profile) {
       setLinks([]);
+      setCertCount(0);
+      setCertScans(0);
       return;
     }
     let cancelled = false;
@@ -133,6 +139,19 @@ const UserDashboard = () => {
       })
       .catch(() => {
         if (!cancelled) setLinks([]);
+      });
+    void listCertificatesByUser(profile.id)
+      .then((rows) => {
+        if (cancelled) return;
+        setCertCount(rows.length);
+        setCertScans(
+          rows.reduce((sum, row) => sum + (row.verify_count ?? 0), 0),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCertCount(0);
+        setCertScans(0);
       });
     return () => {
       cancelled = true;
@@ -280,9 +299,20 @@ const UserDashboard = () => {
             <Link2 size={16} aria-hidden />
             My Links
           </NavLink>
-          <span className="inline-flex size-11 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-muted)]">
-            <Search size={16} aria-hidden />
-          </span>
+          <NavLink
+            to="/user/verified-certificate"
+            className={({ isActive }) =>
+              [
+                "inline-flex min-h-11 items-center gap-tight rounded-full px-cozy text-body-md font-bold transition-colors",
+                isActive
+                  ? "uw-gradient"
+                  : "bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)]",
+              ].join(" ")
+            }
+          >
+            <BadgeCheck size={16} aria-hidden />
+            Certificates
+          </NavLink>
         </div>
 
         <div className="flex items-center gap-snug self-end lg:self-auto">
@@ -319,7 +349,64 @@ const UserDashboard = () => {
             Live:{" "}
             <span className="ml-1 text-[var(--uw-lime)]">{liveCount}</span>
           </span>
+          <span className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-muted)]">
+            Certs:{" "}
+            <span className="ml-1 text-[var(--uw-cyan)]">{certCount}</span>
+          </span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-snug uw-rise-delay-1">
+        <Link
+          to="/user/links-generated"
+          className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy hover:border-[var(--uw-cyan)]/40 transition-colors min-h-14 flex items-center gap-snug"
+        >
+          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-cyan)]">
+            <QrCode size={18} aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-bold text-body-md text-[var(--uw-text)]">
+              QR studio
+            </span>
+            <span className="block text-label-sm text-[var(--uw-muted)]">
+              Shapes, logo, PNG/SVG/PDF
+            </span>
+          </span>
+        </Link>
+        <Link
+          to="/user/verified-certificate"
+          className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy hover:border-[var(--uw-cyan)]/40 transition-colors min-h-14 flex items-center gap-snug"
+        >
+          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-lime)]">
+            <BadgeCheck size={18} aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-bold text-body-md text-[var(--uw-text)]">
+              Certificates
+            </span>
+            <span className="block text-label-sm text-[var(--uw-muted)]">
+              Issue, bulk Excel, branding
+            </span>
+          </span>
+        </Link>
+        <Link
+          to="/cert"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy hover:border-[var(--uw-cyan)]/40 transition-colors min-h-14 flex items-center gap-snug"
+        >
+          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-orange)]">
+            <ShieldCheck size={18} aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-bold text-body-md text-[var(--uw-text)]">
+              Verify portal
+            </span>
+            <span className="block text-label-sm text-[var(--uw-muted)]">
+              Public /cert lookup
+            </span>
+          </span>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter uw-rise-delay-2">
@@ -463,49 +550,38 @@ const UserDashboard = () => {
           <div className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy border border-white/5">
             <div className="flex items-start justify-between mb-cozy">
               <p className="font-label-sm text-label-sm uppercase tracking-wide text-[var(--uw-muted)]">
-                Links
+                Certificates
               </p>
-              <span className="text-[var(--uw-muted)]" aria-hidden>
-                ···
-              </span>
+              <Link
+                to="/user/verified-certificate"
+                className="text-label-sm font-bold text-[var(--uw-lime)] hover:underline"
+              >
+                Open
+              </Link>
             </div>
             <div className="flex items-end gap-roomy mb-cozy">
               <div>
                 <p className="text-3xl font-bold text-[var(--uw-text)] leading-none">
-                  {links.length}
+                  {certCount}
                 </p>
                 <p className="mt-tight inline-flex items-center gap-1 text-[var(--uw-lime)] font-bold text-label-sm">
-                  <Link2 size={14} aria-hidden />
-                  Created
+                  <BadgeCheck size={14} aria-hidden />
+                  Issued
                 </p>
               </div>
               <div>
                 <p className="text-3xl font-bold text-[var(--uw-text)] leading-none">
-                  {liveCount}
+                  {certScans}
                 </p>
-                <p className="mt-tight inline-flex items-center gap-1 text-[var(--uw-orange)] font-bold text-label-sm">
-                  <Activity size={14} aria-hidden />
-                  Live
+                <p className="mt-tight inline-flex items-center gap-1 text-[var(--uw-cyan)] font-bold text-label-sm">
+                  <ShieldCheck size={14} aria-hidden />
+                  Scans
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {Array.from({ length: 24 }).map((_, i) => {
-                const tone =
-                  i % 5 === 0
-                    ? "bg-[var(--uw-lime)]"
-                    : i % 3 === 0
-                      ? "bg-[var(--uw-orange)]"
-                      : "bg-white/15";
-                return (
-                  <span
-                    key={i}
-                    className={`size-2.5 rounded-full ${tone}`}
-                    aria-hidden
-                  />
-                );
-              })}
-            </div>
+            <p className="text-label-sm text-[var(--uw-muted)]">
+              Bulk Excel, QR verify links, org branding, revoke.
+            </p>
           </div>
         </div>
 

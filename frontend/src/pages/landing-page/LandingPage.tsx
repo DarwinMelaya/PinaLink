@@ -1,6 +1,6 @@
 import { useRef, type MouseEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Link2, QrCode, BarChart3, Terminal } from "lucide-react";
+import { ArrowRight, Link2, QrCode, BarChart3, BadgeCheck } from "lucide-react";
 import {
   motion,
   useReducedMotion,
@@ -218,8 +218,8 @@ const LandingPage = () => {
                 variants={fadeUp}
                 className="font-body-lg text-body-lg text-[var(--uw-muted)] max-w-lg mx-auto lg:mx-0 mb-roomy"
               >
-                Create branded aliases, generate dynamic QR codes, and track
-                every click — all from one workspace.
+                Create short links, design advanced QR codes, and issue
+                verifiable certificates — all from one workspace.
               </motion.p>
 
               <motion.div
@@ -283,14 +283,15 @@ const LandingPage = () => {
               variants={fadeUp}
               className="text-[clamp(22px,3vw,32px)] font-bold text-[var(--uw-text)] mb-tight uppercase tracking-tight"
             >
-              Precision Built Features
+              Built for links &amp; certificates
             </motion.h2>
             <motion.p
               variants={fadeUp}
               className="text-[var(--uw-muted)] max-w-xl mx-auto"
             >
-              Scaling your digital presence requires more than just short URLs.
-              It requires clarity, speed, and intelligence.
+              Short URLs with custom codes, branded QR studio, and public
+              certificate verification — ready for events, trainings, and
+              campaigns.
             </motion.p>
           </motion.div>
 
@@ -317,63 +318,47 @@ const LandingPage = () => {
                   whileHover={reduce ? undefined : { rotate: 12, scale: 1.1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 14 }}
                 >
-                  <BarChart3 size={22} aria-hidden />
+                  <BadgeCheck size={22} aria-hidden />
                 </motion.div>
                 <h3 className="font-headline-md text-headline-md text-[var(--uw-text)] mb-tight">
-                  Precision Analytics
+                  Verified Certificates
                 </h3>
                 <p className="text-[var(--uw-muted)] mb-cozy">
-                  Track every click in real-time. Understand your audience with
-                  geolocation, device types, and referral source tracking. Our
-                  dashboard delivers actionable insights to optimize your
-                  campaigns instantly.
+                  Issue certificates with unique IDs and QR codes that open a
+                  public verify page. Bulk Excel upload, org logo branding,
+                  revoke/delete, and PDF packs for attendees.
                 </p>
-                <a
+                <Link
                   className="text-[var(--uw-cyan)] font-bold inline-flex items-center gap-tight hover:gap-cozy transition-all min-h-11"
-                  href="#features"
+                  to="/signup"
                 >
-                  Learn about data points
+                  Start issuing certificates
                   <ArrowRight size={16} aria-hidden />
-                </a>
+                </Link>
               </div>
               <div className="md:w-64 flex-shrink-0 bg-[var(--uw-elevated)] rounded-[1.25rem] overflow-hidden relative border border-white/5 min-h-40">
                 <div className="absolute inset-x-0 top-0 h-8 bg-white/5 border-b border-white/5 flex items-center px-snug gap-tight">
                   <div className="w-2 h-2 rounded-full bg-[#ff6b6b]/60" />
                   <div className="w-2 h-2 rounded-full bg-[var(--uw-cyan)]/80" />
                 </div>
-                <div className="mt-12 p-snug">
-                  <div className="h-2 w-2/3 bg-white/10 rounded-full mb-tight" />
+                <div className="mt-12 p-snug space-y-snug">
+                  <p className="font-mono-label text-[11px] text-[var(--uw-lime)] font-bold">
+                    CERT-001 · VALID
+                  </p>
+                  <div className="h-2 w-2/3 bg-white/10 rounded-full" />
+                  <div className="h-2 w-1/2 bg-white/10 rounded-full" />
                   <motion.div
-                    className="h-4 w-full rounded-full mb-cozy uw-gradient origin-left"
-                    initial={{ scaleX: 0 }}
-                    whileInView={{ scaleX: 1 }}
+                    className="mt-cozy mx-auto size-20 rounded-xl bg-white flex items-center justify-center"
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
-                    transition={{ duration: reduce ? 0.01 : 0.9, ease: easeOut }}
-                  />
-                  <div className="flex gap-tight items-end h-16">
-                    {[
-                      { h: 30, tone: "bg-[var(--uw-navy)]" },
-                      { h: 60, tone: "bg-[var(--uw-cyan)]/40" },
-                      { h: 90, tone: "bg-[var(--uw-cyan)]" },
-                      { h: 45, tone: "bg-[var(--uw-navy)]/80" },
-                      { h: 75, tone: "bg-[var(--uw-cyan)]/70" },
-                    ].map((bar, i) => (
-                      <motion.div
-                        key={bar.h}
-                        className={`flex-1 rounded-t-lg origin-bottom ${bar.tone}`}
-                        style={{ height: `${bar.h}%` }}
-                        initial={{ scaleY: 0 }}
-                        whileInView={{ scaleY: 1 }}
-                        viewport={{ once: true }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 160,
-                          damping: 14,
-                          delay: reduce ? 0 : 0.08 * i,
-                        }}
-                      />
-                    ))}
-                  </div>
+                    transition={{ duration: reduce ? 0.01 : 0.5 }}
+                  >
+                    <QrCode size={40} className="text-black" aria-hidden />
+                  </motion.div>
+                  <p className="text-center text-[10px] text-[var(--uw-muted)]">
+                    /cert/ABC123XYZ
+                  </p>
                 </div>
               </div>
             </motion.div>
@@ -394,14 +379,11 @@ const LandingPage = () => {
                 <Link2 size={22} aria-hidden />
               </motion.div>
               <h3 className="font-headline-md text-headline-md text-[var(--uw-text)] mb-tight">
-                Custom Aliases
+                Short links &amp; aliases
               </h3>
               <p className="text-[var(--uw-muted)]">
-                Ditch the random strings. Use branded keywords like{" "}
-                <span className="font-mono-label text-[var(--uw-cyan)]">
-                  /promo24
-                </span>{" "}
-                to build trust and increase CTR by up to 34%.
+                Paste a long URL, get a short link, then customize the vanity
+                code — pause, favorite, expire, and edit destination anytime.
               </p>
             </motion.div>
 
@@ -421,12 +403,12 @@ const LandingPage = () => {
                 <QrCode size={22} aria-hidden />
               </motion.div>
               <h3 className="font-headline-md text-headline-md text-[var(--uw-text)] mb-tight">
-                QR Code Generation
+                Advanced QR studio
               </h3>
               <p className="text-[var(--uw-muted)]">
-                Instant, high-resolution QR codes for every link. Perfect for
-                print materials, retail displays, and seamless bridge from
-                physical to digital.
+                Logo in QR, shapes, frames, stickers. Export PNG (transparent),
+                SVG, or PDF. Dynamic destination — change the URL without
+                reprinting the QR.
               </p>
             </motion.div>
 
@@ -438,15 +420,24 @@ const LandingPage = () => {
             >
               <div className="flex-grow min-w-0">
                 <h3 className="font-headline-md text-headline-md mb-tight text-[var(--uw-on-accent)]">
-                  Developer First API
+                  Click tracking
                 </h3>
                 <p className="mb-cozy text-[var(--uw-on-accent)]/80">
-                  Integrate shortening directly into your stack. Scale from 10
-                  to 10 million links per month with our robust REST API.
+                  See total clicks per short link, live vs paused status, and
+                  certificate verify scans — so you know what people actually
+                  open.
                 </p>
-                <code className="block bg-black/25 p-snug rounded-2xl font-mono-label text-label-sm text-[var(--uw-on-accent)] overflow-x-auto">
-                  {'POST /v1/shorten { "url": "..." }'}
-                </code>
+                <div className="flex flex-wrap gap-tight">
+                  <span className="inline-flex min-h-10 items-center rounded-full bg-black/20 px-cozy text-label-sm font-bold text-[var(--uw-on-accent)]">
+                    Link clicks
+                  </span>
+                  <span className="inline-flex min-h-10 items-center rounded-full bg-black/20 px-cozy text-label-sm font-bold text-[var(--uw-on-accent)]">
+                    Cert scans
+                  </span>
+                  <span className="inline-flex min-h-10 items-center rounded-full bg-black/20 px-cozy text-label-sm font-bold text-[var(--uw-on-accent)]">
+                    Live / revoked
+                  </span>
+                </div>
               </div>
               <motion.div
                 className="hidden lg:block shrink-0 text-[var(--uw-on-accent)]/30"
@@ -455,7 +446,7 @@ const LandingPage = () => {
                 }
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
               >
-                <Terminal size={80} aria-hidden />
+                <BarChart3 size={80} aria-hidden />
               </motion.div>
             </motion.div>
           </motion.div>
@@ -501,15 +492,15 @@ const LandingPage = () => {
             variants={fadeUp}
             className="text-[clamp(28px,5vw,48px)] font-bold tracking-tight text-[var(--uw-text)] mb-cozy"
           >
-            Start Shortening{" "}
-            <span className="uw-gradient-text">for Free.</span>
+            Start with links &amp;{" "}
+            <span className="uw-gradient-text">certificates.</span>
           </motion.h2>
           <motion.p
             variants={fadeUp}
             className="font-body-lg text-body-lg text-[var(--uw-muted)] mb-wide"
           >
-            Join over 15,000 businesses using Pinalink to drive smarter traffic
-            and measure every conversion.
+            Shorten URLs, design QR codes, and issue verifiable certificates
+            with public scan pages — free to get started.
           </motion.p>
           <motion.div
             variants={fadeUp}
