@@ -5,21 +5,30 @@ export type ShortLinkRow = {
   id: string;
   code: string;
   original_url: string;
+  user_id: string | null;
   created_at: string;
   click_count: number;
 };
 
 const MAX_CODE_RETRIES = 5;
 
-export async function createShortLink(originalUrl: string): Promise<ShortLinkRow> {
+export async function createShortLink(
+  originalUrl: string,
+  userId: string,
+): Promise<ShortLinkRow> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
     const code = generateShortCode();
-    // ASSUMPTION: @default(cuid()) is Prisma Client-only — Supabase insert must send id
+    // ASSUMPTION: @default(uuid()) is Prisma Client-only — Supabase insert must send id
     const { data, error } = await supabase
       .from("short_links")
-      .insert({ id: crypto.randomUUID(), code, original_url: originalUrl })
+      .insert({
+        id: crypto.randomUUID(),
+        code,
+        original_url: originalUrl,
+        user_id: userId,
+      })
       .select()
       .single();
 
@@ -37,6 +46,22 @@ export async function createShortLink(originalUrl: string): Promise<ShortLinkRow
   }
 
   throw lastError ?? new Error("Could not allocate unique short code");
+}
+
+export async function listShortLinksByUser(
+  userId: string,
+): Promise<ShortLinkRow[]> {
+  const { data, error } = await supabase
+    .from("short_links")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as ShortLinkRow[]) ?? [];
 }
 
 export async function getShortLinkByCode(code: string): Promise<ShortLinkRow | null> {

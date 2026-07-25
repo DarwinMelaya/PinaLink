@@ -64,7 +64,7 @@ export function clearSession(): void {
 }
 
 export function homePathForRole(role: UserRole): string {
-  return role === "ADMIN" ? "/admin/dashboard" : "/home";
+  return role === "ADMIN" ? "/admin/dashboard" : "/";
 }
 
 function parseRole(value: unknown): UserRole {

@@ -53,7 +53,7 @@ const AdminDashboard = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-snug">
           <Link
-            to="/home"
+            to="/"
             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-cozy text-on-primary font-bold hover:bg-surface-tint transition-colors"
           >
             Create New Link

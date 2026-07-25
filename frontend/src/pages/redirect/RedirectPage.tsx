@@ -62,7 +62,7 @@ const RedirectPage = () => {
           : errorMessage}
       </p>
       <Link
-        to="/home"
+        to="/"
         className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-teal-800 px-4 text-[15px] font-medium text-white hover:bg-teal-900"
       >
         Create a short link

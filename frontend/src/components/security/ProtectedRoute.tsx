@@ -14,7 +14,7 @@ const ProtectedRoute = ({ role = "ADMIN" }: ProtectedRouteProps) => {
   }
 
   if (role === "ADMIN" && session.role !== "ADMIN") {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (

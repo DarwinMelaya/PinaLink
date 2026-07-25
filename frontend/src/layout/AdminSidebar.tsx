@@ -62,7 +62,7 @@ const AdminSidebar = ({ onNavigate }: AdminSidebarProps) => {
 
       <div className="px-cozy pb-cozy">
         <Link
-          to="/home"
+          to="/"
           onClick={onNavigate}
           className="flex min-h-12 w-full items-center justify-center gap-tight rounded-xl bg-primary text-on-primary font-bold text-body-md shadow-lg shadow-primary/20 hover:bg-surface-tint active:scale-[0.99] transition-all"
         >

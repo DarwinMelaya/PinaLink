@@ -21,6 +21,8 @@ model Profile {
   role         UserRole @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
 
+  shortLinks ShortLink[]
+
   @@map("profiles")
 }
 
@@ -30,8 +32,12 @@ model ShortLink {
   id          String   @id @default(uuid())
   code        String   @unique @db.VarChar(12)
   originalUrl String   @map("original_url") @db.Text
+  userId      String?  @map("user_id")
   createdAt   DateTime @default(now()) @map("created_at")
   clickCount  Int      @default(0) @map("click_count")
 
+  profile Profile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
   @@map("short_links")
 }

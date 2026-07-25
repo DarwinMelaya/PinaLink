@@ -1,12 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import {
   LandingPage,
-  HomePage,
   Login,
   SignUp,
   AuthCallback,
   AdminDashboard,
   AdminUser,
+  RedirectPage,
 } from "../pages";
 import ProtectedRoute from "../components/security/ProtectedRoute";
 import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
@@ -17,7 +17,7 @@ const Routers = () => {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/home" element={<HomePage />} />
+        <Route path="/s/:code" element={<RedirectPage />} />
         {/* Auth routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />

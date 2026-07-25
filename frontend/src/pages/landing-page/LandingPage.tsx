@@ -1,28 +1,98 @@
-import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import Layout from "../../layout/Layout";
+import { getSession } from "../../utils/authApi";
 import { buildShortUrl, normalizeUrl } from "../../utils/shortLink";
-import { createShortLink } from "../../utils/shortLinkApi";
+import {
+  createShortLink,
+  listShortLinksByUser,
+  type ShortLinkRow,
+} from "../../utils/shortLinkApi";
 
 type ShortenStatus = "idle" | "loading" | "success" | "error";
 
 type ShortenResult = {
   shortUrl: string;
   code: string;
+  originalUrl: string;
 };
 
+function rowToResult(row: ShortLinkRow): ShortenResult {
+  return {
+    shortUrl: buildShortUrl(row.code),
+    code: row.code,
+    originalUrl: row.original_url,
+  };
+}
+
 const LandingPage = () => {
+  const navigate = useNavigate();
+  const session = getSession();
+  const isLoggedIn = session !== null;
+
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState<ShortenStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<ShortenResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [myLinks, setMyLinks] = useState<ShortLinkRow[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [historyError, setHistoryError] = useState("");
+
+  useEffect(() => {
+    if (!session) {
+      setMyLinks([]);
+      setResult(null);
+      setHistoryStatus("idle");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadHistory() {
+      setHistoryStatus("loading");
+      setHistoryError("");
+      try {
+        const rows = await listShortLinksByUser(session!.id);
+        if (cancelled) return;
+        setMyLinks(rows);
+        if (rows[0]) {
+          setResult(rowToResult(rows[0]));
+        }
+        setHistoryStatus("idle");
+      } catch (err) {
+        if (cancelled) return;
+        setHistoryStatus("error");
+        setHistoryError(
+          err instanceof Error ? err.message : "Could not load your links.",
+        );
+      }
+    }
+
+    void loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.id]);
 
   async function handleShorten(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCopied(false);
+    setCopiedCode(null);
     setErrorMessage("");
+
+    const current = getSession();
+    if (!current) {
+      setStatus("error");
+      setErrorMessage("Log in to shorten links and generate QR codes.");
+      setResult(null);
+      navigate("/login", { state: { from: "/" } });
+      return;
+    }
 
     const normalized = normalizeUrl(urlInput);
     if (!normalized) {
@@ -34,11 +104,11 @@ const LandingPage = () => {
 
     setStatus("loading");
     try {
-      const row = await createShortLink(normalized);
-      setResult({
-        shortUrl: buildShortUrl(row.code),
-        code: row.code,
-      });
+      const row = await createShortLink(normalized, current.id);
+      const next = rowToResult(row);
+      setResult(next);
+      setMyLinks((prev) => [row, ...prev]);
+      setUrlInput("");
       setStatus("success");
     } catch (err) {
       setStatus("error");
@@ -47,11 +117,11 @@ const LandingPage = () => {
     }
   }
 
-  async function handleCopy() {
-    if (!result) return;
+  async function handleCopy(shortUrl: string, code: string) {
     try {
-      await navigator.clipboard.writeText(result.shortUrl);
+      await navigator.clipboard.writeText(shortUrl);
       setCopied(true);
+      setCopiedCode(code);
     } catch {
       setErrorMessage("Copy failed. Select the link and copy manually.");
     }
@@ -71,6 +141,16 @@ const LandingPage = () => {
     anchor.download = `pinalink-${result.code}.svg`;
     anchor.click();
     URL.revokeObjectURL(href);
+  }
+
+  function selectLink(row: ShortLinkRow) {
+    setResult(rowToResult(row));
+    setCopied(false);
+    setCopiedCode(null);
+    document.getElementById("shorten-result")?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
   }
 
   return (
@@ -101,7 +181,7 @@ const LandingPage = () => {
               </label>
               <div className="flex flex-col sm:flex-row gap-tight sm:gap-0 sm:bg-surface-container sm:rounded-lg sm:border sm:border-outline-variant sm:focus-within:border-primary sm:focus-within:ring-4 sm:focus-within:ring-primary/10 transition-all">
                 <input
-                  className="w-full min-h-12 px-cozy bg-surface-container sm:bg-transparent rounded-lg sm:rounded-none border border-outline-variant sm:border-0 focus:border-primary focus:ring-4 focus:ring-primary/10 sm:focus:ring-0 sm:focus:border-transparent transition-all text-body-md outline-none"
+                  className="w-full min-h-12 px-cozy bg-surface-container sm:bg-transparent rounded-lg sm:rounded-none border border-outline-variant sm:border-0 focus:border-primary focus:ring-4 focus:ring-primary/10 sm:focus:ring-0 sm:focus:border-transparent transition-all text-body-md outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                   id="url-input"
                   placeholder="https://very-long-and-complex-corporate-url.com/data/analytics/reports/2024"
                   type="url"
@@ -109,15 +189,36 @@ const LandingPage = () => {
                   onChange={(e) => setUrlInput(e.target.value)}
                   autoComplete="url"
                   required
+                  disabled={!isLoggedIn}
                 />
                 <button
                   type="submit"
-                  disabled={status === "loading"}
+                  disabled={!isLoggedIn || status === "loading"}
                   className="shrink-0 min-h-12 bg-primary text-on-primary px-roomy rounded-lg font-bold hover:bg-surface-tint active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed sm:m-base"
                 >
                   {status === "loading" ? "Creating..." : "Shorten"}
                 </button>
               </div>
+
+              {!isLoggedIn ? (
+                <p className="mt-cozy text-body-md text-on-surface-variant">
+                  Log in to shorten links and generate QR codes.{" "}
+                  <Link
+                    to="/login"
+                    className="font-bold text-primary hover:underline underline-offset-2"
+                  >
+                    Sign in
+                  </Link>{" "}
+                  or{" "}
+                  <Link
+                    to="/signup"
+                    className="font-bold text-primary hover:underline underline-offset-2"
+                  >
+                    create an account
+                  </Link>
+                  .
+                </p>
+              ) : null}
 
               {status === "error" && errorMessage ? (
                 <p className="mt-cozy text-error text-body-md" role="alert">
@@ -138,15 +239,20 @@ const LandingPage = () => {
                       </span>
                       <button
                         type="button"
-                        onClick={handleCopy}
+                        onClick={() => void handleCopy(result.shortUrl, result.code)}
                         className="flex items-center gap-tight text-primary font-bold hover:underline transition-all shrink-0 min-h-11"
                       >
                         <span className="material-symbols-outlined text-[20px]">
                           content_copy
                         </span>
-                        <span>{copied ? "Copied" : "Copy"}</span>
+                        <span>
+                          {copied && copiedCode === result.code ? "Copied" : "Copy"}
+                        </span>
                       </button>
                     </div>
+                    <p className="text-on-surface-variant font-label-sm text-label-sm break-all">
+                      Opens: {result.originalUrl}
+                    </p>
                     <div className="flex items-center gap-snug flex-wrap">
                       <span className="bg-secondary/10 text-secondary px-snug py-tight rounded-full font-label-sm text-label-sm flex items-center gap-tight">
                         <span
@@ -186,6 +292,84 @@ const LandingPage = () => {
                       </button>
                     </div>
                   </div>
+                </div>
+              ) : null}
+
+              {isLoggedIn ? (
+                <div className="mt-roomy border-t border-outline-variant pt-roomy">
+                  <h2 className="font-headline-md text-headline-md text-on-surface mb-tight">
+                    Your links
+                  </h2>
+                  <p className="text-on-surface-variant text-body-md mb-cozy">
+                    Links you created stay here — tap one to view QR again.
+                  </p>
+
+                  {historyStatus === "loading" ? (
+                    <p className="text-on-surface-variant text-body-md">
+                      Loading your links…
+                    </p>
+                  ) : null}
+
+                  {historyStatus === "error" ? (
+                    <p className="text-error text-body-md" role="alert">
+                      {historyError}
+                    </p>
+                  ) : null}
+
+                  {historyStatus !== "loading" && myLinks.length === 0 ? (
+                    <p className="text-on-surface-variant text-body-md">
+                      No links yet. Paste a URL above to create your first one.
+                    </p>
+                  ) : null}
+
+                  {myLinks.length > 0 ? (
+                    <ul className="space-y-snug">
+                      {myLinks.map((row) => {
+                        const shortUrl = buildShortUrl(row.code);
+                        const isSelected = result?.code === row.code;
+                        return (
+                          <li key={row.id}>
+                            <div
+                              className={`w-full rounded-lg border p-cozy transition-all min-h-11 ${
+                                isSelected
+                                  ? "border-primary bg-primary/5"
+                                  : "border-outline-variant bg-surface-container"
+                              }`}
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-tight">
+                                <button
+                                  type="button"
+                                  onClick={() => selectLink(row)}
+                                  className="min-w-0 text-left flex-1 rounded-md hover:opacity-90 transition-opacity"
+                                >
+                                  <p className="font-mono-label text-primary font-bold break-all">
+                                    {shortUrl.replace(/^https?:\/\//, "")}
+                                  </p>
+                                  <p className="mt-tight text-on-surface-variant font-label-sm text-label-sm break-all line-clamp-2">
+                                    {row.original_url}
+                                  </p>
+                                  <p className="mt-tight text-on-surface-variant font-label-sm text-label-sm">
+                                    {new Date(row.created_at).toLocaleString()} ·{" "}
+                                    {row.click_count} clicks
+                                  </p>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleCopy(shortUrl, row.code)}
+                                  className="shrink-0 inline-flex items-center gap-tight text-primary font-bold font-label-sm text-label-sm min-h-11"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">
+                                    content_copy
+                                  </span>
+                                  {copiedCode === row.code ? "Copied" : "Copy"}
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
                 </div>
               ) : null}
             </form>

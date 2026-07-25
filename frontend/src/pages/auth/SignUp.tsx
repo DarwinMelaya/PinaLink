@@ -1,12 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, User, ArrowRight, Shield } from "lucide-react";
-import {
-  registerProfile,
-  homePathForRole,
-  signInWithGoogle,
-  type UserRole,
-} from "../../utils/authApi";
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
+import { registerProfile, signInWithGoogle } from "../../utils/authApi";
 
 const LOGO_SRC = "/img/pinalink_logo.png";
 
@@ -24,7 +19,6 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("USER");
   const [status, setStatus] = useState<SubmitStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
@@ -48,14 +42,13 @@ const SignUp = () => {
 
     setStatus("loading");
     try {
-      const profile = await registerProfile({
+      await registerProfile({
         name,
         email,
         password,
-        role,
+        role: "USER",
       });
-      // ASSUMPTION: public Admin signup allowed for now — lock down later.
-      navigate(homePathForRole(profile.role), { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Registration failed.";
@@ -75,8 +68,7 @@ const SignUp = () => {
     setInfoMessage("");
     setOauthLoading(true);
     try {
-      // ASSUMPTION: Google signup uses selected account type (USER/ADMIN).
-      await signInWithGoogle(role);
+      await signInWithGoogle("USER");
     } catch (err) {
       setOauthLoading(false);
       setErrorMessage(err instanceof Error ? err.message : "Google sign-in failed.");
@@ -124,42 +116,6 @@ const SignUp = () => {
 
         <div className="w-full bg-surface-container-lowest rounded-xl border border-outline-variant soft-float p-roomy transition-standard">
           <form className="space-y-cozy" onSubmit={handleSubmit} noValidate>
-            <fieldset>
-              <legend className="block mb-tight font-label-sm text-label-sm text-on-surface-variant">
-                Account type
-              </legend>
-              <div className="grid grid-cols-2 gap-snug" role="radiogroup" aria-label="Account type">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={role === "USER"}
-                  onClick={() => setRole("USER")}
-                  className={`min-h-12 rounded-lg border px-cozy inline-flex items-center justify-center gap-tight text-body-md font-medium transition-all ${
-                    role === "USER"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"
-                  }`}
-                >
-                  <User size={18} aria-hidden />
-                  User
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={role === "ADMIN"}
-                  onClick={() => setRole("ADMIN")}
-                  className={`min-h-12 rounded-lg border px-cozy inline-flex items-center justify-center gap-tight text-body-md font-medium transition-all ${
-                    role === "ADMIN"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"
-                  }`}
-                >
-                  <Shield size={18} aria-hidden />
-                  Admin
-                </button>
-              </div>
-            </fieldset>
-
             <div>
               <label
                 htmlFor="signup-name"
