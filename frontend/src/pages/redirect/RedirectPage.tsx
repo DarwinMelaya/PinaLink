@@ -27,6 +27,18 @@ const RedirectPage = () => {
           return;
         }
 
+        if (row.is_active === false) {
+          setStatus("missing");
+          setErrorMessage("This link is paused by its owner.");
+          return;
+        }
+
+        if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
+          setStatus("missing");
+          setErrorMessage("This short link has expired.");
+          return;
+        }
+
         void incrementClickCount(row.id, row.click_count);
         window.location.replace(row.original_url);
       } catch (err) {
@@ -58,7 +70,7 @@ const RedirectPage = () => {
       </h1>
       <p className="mt-2 max-w-prose text-[15px] text-stone-600">
         {status === "missing"
-          ? "This short code does not exist or was removed."
+          ? errorMessage || "This short code does not exist or was removed."
           : errorMessage}
       </p>
       <Link

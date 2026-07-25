@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { NavLink } from "react-router-dom";
 import {
   Pencil,
   Trash2,
@@ -11,6 +12,9 @@ import {
   EyeOff,
   ShieldCheck,
   UserRound,
+  LayoutDashboard,
+  LineChart,
+  Settings,
 } from "lucide-react";
 import { getSession, type UserRole } from "../../utils/authApi";
 import {
@@ -39,6 +43,9 @@ const EMPTY_FORM: FormState = {
   role: "USER",
 };
 
+const fieldClass =
+  "w-full min-h-12 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-cozy text-body-md text-[var(--uw-text)] outline-none focus:border-[var(--uw-cyan)]/50 focus:ring-2 focus:ring-[var(--uw-cyan)]/20";
+
 function initials(name: string): string {
   return name
     .split(" ")
@@ -54,8 +61,8 @@ function RoleBadge({ role }: { role: UserRole }) {
     <span
       className={`inline-flex min-h-8 items-center gap-tight rounded-full border px-snug font-label-sm text-label-sm font-bold ${
         isAdmin
-          ? "border-primary/40 bg-primary/10 text-primary"
-          : "border-outline-variant bg-surface-container text-on-surface-variant"
+          ? "border-[var(--uw-cyan)]/40 bg-[var(--uw-cyan)]/10 text-[var(--uw-cyan)]"
+          : "border-white/10 bg-white/5 text-[var(--uw-muted)]"
       }`}
     >
       {isAdmin ? (
@@ -83,6 +90,17 @@ const AdminUser = () => {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [toast, setToast] = useState("");
+
+  const displayName = session?.name ?? "Admin";
+  const handle = session?.email
+    ? `@${session.email.split("@")[0]}`
+    : "@admin";
+  const sessionInitials = displayName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   async function refresh() {
     setStatus("loading");
@@ -225,66 +243,145 @@ const AdminUser = () => {
   }
 
   return (
-    <div className="space-y-roomy max-w-6xl">
-      <div className="flex flex-col gap-cozy lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto max-w-6xl space-y-roomy">
+      <div className="flex flex-col gap-cozy lg:flex-row lg:items-center lg:justify-between uw-rise">
+        <div className="flex flex-wrap items-center gap-tight">
+          <NavLink
+            to="/admin/dashboard"
+            className={({ isActive }) =>
+              [
+                "inline-flex min-h-11 items-center gap-tight rounded-full px-cozy text-body-md font-bold transition-colors",
+                isActive
+                  ? "uw-gradient"
+                  : "bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)]",
+              ].join(" ")
+            }
+          >
+            <LayoutDashboard size={16} aria-hidden />
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/admin/user"
+            end
+            className={({ isActive }) =>
+              [
+                "inline-flex min-h-11 items-center gap-tight rounded-full px-cozy text-body-md font-bold transition-colors",
+                isActive
+                  ? "uw-gradient"
+                  : "bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)]",
+              ].join(" ")
+            }
+          >
+            <Users size={16} aria-hidden />
+            Users
+          </NavLink>
+          <NavLink
+            to="/admin/analytics"
+            className={({ isActive }) =>
+              [
+                "inline-flex min-h-11 items-center gap-tight rounded-full px-cozy text-body-md font-bold transition-colors",
+                isActive
+                  ? "uw-gradient"
+                  : "bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)]",
+              ].join(" ")
+            }
+          >
+            <LineChart size={16} aria-hidden />
+            Analytics
+          </NavLink>
+          <NavLink
+            to="/admin/settings"
+            className={({ isActive }) =>
+              [
+                "inline-flex min-h-11 items-center gap-tight rounded-full px-cozy text-body-md font-bold transition-colors",
+                isActive
+                  ? "uw-gradient"
+                  : "bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)]",
+              ].join(" ")
+            }
+          >
+            <Settings size={16} aria-hidden />
+            Settings
+          </NavLink>
+        </div>
+
+        <div className="flex items-center gap-snug self-end lg:self-auto">
+          <div className="text-right min-w-0">
+            <p className="font-bold text-body-md text-[var(--uw-text)] truncate">
+              {displayName}
+            </p>
+            <p className="font-label-sm text-label-sm text-[var(--uw-muted)] truncate">
+              {handle}
+            </p>
+          </div>
+          <div
+            className="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-cyan)] font-bold ring-2 ring-white/10"
+            aria-hidden
+          >
+            {sessionInitials || "A"}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-cozy lg:flex-row lg:items-end lg:justify-between uw-rise-delay-1">
         <div>
-          <p className="font-label-sm text-label-sm uppercase tracking-[0.12em] text-primary font-bold mb-tight">
+          <p className="font-label-sm text-label-sm uppercase tracking-[0.12em] text-[var(--uw-cyan)] font-bold mb-tight">
             Access control
           </p>
-          <h1 className="font-headline-md text-headline-md text-on-surface">
+          <h1 className="text-[clamp(28px,5vw,42px)] font-bold tracking-tight uppercase leading-none uw-gradient-text">
             Users
           </h1>
-          <p className="mt-tight text-body-md text-on-surface-variant max-w-2xl">
+          <p className="mt-snug text-body-md text-[var(--uw-muted)] max-w-2xl">
             Create accounts, edit profiles, change roles, and remove access.
           </p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex min-h-12 items-center justify-center gap-tight rounded-xl bg-primary px-cozy text-on-primary font-bold hover:bg-surface-tint active:scale-[0.99] transition-all shadow-lg shadow-primary/20"
+          className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full uw-gradient px-cozy font-bold hover:brightness-110 active:scale-[0.99] transition-all shadow-[0_0_20px_rgba(0,212,197,0.25)]"
         >
           <UserPlus size={18} aria-hidden />
           Add user
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-gutter">
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-cozy">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-gutter uw-rise-delay-2">
+        <div className="rounded-[1.75rem] border border-white/5 bg-[var(--uw-card)] p-cozy">
           <div className="flex items-center justify-between gap-snug">
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide">
+            <p className="font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
               Total
             </p>
-            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-cyan)]">
               <Users size={18} aria-hidden />
             </span>
           </div>
-          <p className="mt-snug text-display-lg-mobile font-display-lg text-on-surface">
+          <p className="mt-snug text-display-lg-mobile font-display-lg text-[var(--uw-text)]">
             {status === "loading" ? "—" : stats.total}
           </p>
         </div>
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-cozy">
+        <div className="rounded-[1.75rem] border border-white/5 bg-[var(--uw-card)] p-cozy">
           <div className="flex items-center justify-between gap-snug">
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide">
+            <p className="font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
               Admins
             </p>
-            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-cyan)]">
               <Shield size={18} aria-hidden />
             </span>
           </div>
-          <p className="mt-snug text-display-lg-mobile font-display-lg text-on-surface">
+          <p className="mt-snug text-display-lg-mobile font-display-lg text-[var(--uw-text)]">
             {status === "loading" ? "—" : stats.admins}
           </p>
         </div>
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-cozy">
+        <div className="rounded-[1.75rem] border border-white/5 bg-[var(--uw-card)] p-cozy">
           <div className="flex items-center justify-between gap-snug">
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide">
+            <p className="font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
               Members
             </p>
-            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+            <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-white/5 text-white">
               <UserRound size={18} aria-hidden />
             </span>
           </div>
-          <p className="mt-snug text-display-lg-mobile font-display-lg text-on-surface">
+          <p className="mt-snug text-display-lg-mobile font-display-lg text-[var(--uw-text)]">
             {status === "loading" ? "—" : stats.members}
           </p>
         </div>
@@ -295,7 +392,7 @@ const AdminUser = () => {
           <span className="sr-only">Search users</span>
           <Search
             size={18}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--uw-muted)]"
             aria-hidden
           />
           <input
@@ -303,11 +400,11 @@ const AdminUser = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or email"
-            className="w-full min-h-12 rounded-xl border border-outline-variant bg-surface-container-lowest pl-11 pr-cozy text-body-md outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+            className="w-full min-h-12 rounded-full border border-white/5 bg-[var(--uw-card)] pl-11 pr-cozy text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] outline-none focus:ring-2 focus:ring-[var(--uw-cyan)]/30"
           />
         </label>
         <div
-          className="inline-flex rounded-xl border border-outline-variant bg-surface-container-lowest p-tight"
+          className="inline-flex rounded-full border border-white/5 bg-[var(--uw-card)] p-tight"
           role="group"
           aria-label="Filter by role"
         >
@@ -316,10 +413,10 @@ const AdminUser = () => {
               key={value}
               type="button"
               onClick={() => setRoleFilter(value)}
-              className={`min-h-10 rounded-lg px-cozy font-label-sm text-label-sm font-bold transition-colors ${
+              className={`min-h-10 rounded-full px-cozy font-label-sm text-label-sm font-bold transition-colors ${
                 roleFilter === value
-                  ? "bg-primary text-on-primary"
-                  : "text-on-surface-variant hover:bg-surface-container"
+                  ? "uw-gradient"
+                  : "text-[var(--uw-muted)] hover:text-[var(--uw-text)]"
               }`}
             >
               {value === "ALL" ? "All" : value}
@@ -329,34 +426,34 @@ const AdminUser = () => {
       </div>
 
       {status === "error" ? (
-        <p className="text-error text-body-md" role="alert">
+        <p className="text-[#ff6b6b] text-body-md" role="alert">
           {errorMessage}
         </p>
       ) : null}
 
       {toast ? (
         <p
-          className="rounded-xl border border-secondary/30 bg-secondary/10 px-cozy py-snug text-secondary font-bold text-body-md"
+          className="rounded-full border border-[var(--uw-cyan)]/30 bg-[var(--uw-cyan)]/10 px-cozy py-snug text-[var(--uw-cyan)] font-bold text-body-md"
           role="status"
         >
           {toast}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <div className="overflow-x-auto rounded-[1.75rem] border border-white/5 bg-[var(--uw-card)]">
         <table className="w-full min-w-[720px] text-left text-body-md">
-          <thead className="bg-surface-container-low border-b border-outline-variant">
+          <thead className="bg-[var(--uw-elevated)] border-b border-white/5">
             <tr>
-              <th className="px-cozy py-snug font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide">
+              <th className="px-cozy py-snug font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
                 User
               </th>
-              <th className="px-cozy py-snug font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide">
+              <th className="px-cozy py-snug font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
                 Role
               </th>
-              <th className="px-cozy py-snug font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide">
+              <th className="px-cozy py-snug font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
                 Joined
               </th>
-              <th className="px-cozy py-snug font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide text-right">
+              <th className="px-cozy py-snug font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide text-right">
                 Actions
               </th>
             </tr>
@@ -364,7 +461,10 @@ const AdminUser = () => {
           <tbody>
             {status === "loading" ? (
               <tr>
-                <td colSpan={4} className="px-cozy py-roomy text-on-surface-variant">
+                <td
+                  colSpan={4}
+                  className="px-cozy py-roomy text-[var(--uw-muted)]"
+                >
                   Loading users…
                 </td>
               </tr>
@@ -372,7 +472,10 @@ const AdminUser = () => {
 
             {status === "success" && filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-cozy py-roomy text-on-surface-variant">
+                <td
+                  colSpan={4}
+                  className="px-cozy py-roomy text-[var(--uw-muted)]"
+                >
                   {users.length === 0
                     ? "No users yet. Add the first account."
                     : "No users match your search."}
@@ -385,26 +488,26 @@ const AdminUser = () => {
               return (
                 <tr
                   key={user.id}
-                  className="border-t border-outline-variant/70 hover:bg-surface-container-low/50 transition-colors"
+                  className="border-t border-white/5 hover:bg-white/[0.03] transition-colors"
                 >
                   <td className="px-cozy py-snug">
                     <div className="flex items-center gap-snug min-w-0">
                       <div
-                        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary font-bold text-label-sm"
+                        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--uw-cyan)]/15 text-[var(--uw-cyan)] font-bold text-label-sm"
                         aria-hidden
                       >
                         {initials(user.name) || "U"}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-on-surface truncate">
+                        <p className="font-bold text-[var(--uw-text)] truncate">
                           {user.name}
                           {isSelf ? (
-                            <span className="ml-tight font-label-sm text-label-sm text-primary font-bold">
+                            <span className="ml-tight font-label-sm text-label-sm text-[var(--uw-cyan)] font-bold">
                               You
                             </span>
                           ) : null}
                         </p>
-                        <p className="text-on-surface-variant truncate">
+                        <p className="text-[var(--uw-muted)] truncate">
                           {user.email}
                         </p>
                       </div>
@@ -424,13 +527,17 @@ const AdminUser = () => {
                           e.target.value === "ADMIN" ? "ADMIN" : "USER",
                         )
                       }
-                      className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-snug text-body-md outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:opacity-60"
+                      className="min-h-11 rounded-full border border-white/10 bg-[var(--uw-elevated)] px-snug text-body-md text-[var(--uw-text)] outline-none focus:border-[var(--uw-cyan)]/50 focus:ring-2 focus:ring-[var(--uw-cyan)]/20 disabled:opacity-60"
                     >
-                      <option value="USER">USER</option>
-                      <option value="ADMIN">ADMIN</option>
+                      <option value="USER" className="bg-[var(--uw-card)]">
+                        USER
+                      </option>
+                      <option value="ADMIN" className="bg-[var(--uw-card)]">
+                        ADMIN
+                      </option>
                     </select>
                   </td>
-                  <td className="px-cozy py-snug text-on-surface-variant whitespace-nowrap">
+                  <td className="px-cozy py-snug text-[var(--uw-muted)] whitespace-nowrap">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-cozy py-snug">
@@ -438,7 +545,7 @@ const AdminUser = () => {
                       <button
                         type="button"
                         onClick={() => openEdit(user)}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container transition-colors"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/10 text-[var(--uw-text)] hover:bg-white/5 transition-colors"
                         aria-label={`Edit ${user.name}`}
                       >
                         <Pencil size={16} aria-hidden />
@@ -447,7 +554,7 @@ const AdminUser = () => {
                         type="button"
                         onClick={() => openDelete(user)}
                         disabled={isSelf}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-error/30 text-error hover:bg-error-container/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#ff6b6b]/30 text-[#ff6b6b] hover:bg-[#ff6b6b]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label={`Delete ${user.name}`}
                       >
                         <Trash2 size={16} aria-hidden />
@@ -465,7 +572,7 @@ const AdminUser = () => {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-gutter">
           <button
             type="button"
-            className="absolute inset-0 bg-on-surface/45"
+            className="absolute inset-0 bg-black/70"
             aria-label="Close dialog"
             onClick={closeModal}
           />
@@ -473,17 +580,17 @@ const AdminUser = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="user-modal-title"
-            className="relative z-10 w-full max-w-lg rounded-2xl border border-outline-variant bg-surface-container-lowest p-roomy shadow-2xl"
+            className="relative z-10 w-full max-w-lg rounded-[1.75rem] border border-white/10 bg-[var(--uw-card)] p-roomy shadow-2xl"
           >
             <div className="flex items-start justify-between gap-snug mb-cozy">
               <div>
                 <h2
                   id="user-modal-title"
-                  className="font-headline-md text-headline-md text-on-surface"
+                  className="font-headline-md text-headline-md text-[var(--uw-text)]"
                 >
                   {modal === "create" ? "Add user" : "Edit user"}
                 </h2>
-                <p className="mt-tight text-body-md text-on-surface-variant">
+                <p className="mt-tight text-body-md text-[var(--uw-muted)]">
                   {modal === "create"
                     ? "Creates a login account and profile."
                     : "Update name, email, or role."}
@@ -492,7 +599,7 @@ const AdminUser = () => {
               <button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[var(--uw-muted)] hover:bg-white/5"
                 aria-label="Close"
               >
                 <X size={20} aria-hidden />
@@ -503,7 +610,7 @@ const AdminUser = () => {
               <div>
                 <label
                   htmlFor="user-name"
-                  className="block font-label-sm text-label-sm text-on-surface-variant mb-tight"
+                  className="block font-label-sm text-label-sm text-[var(--uw-muted)] mb-tight"
                 >
                   Name
                 </label>
@@ -514,14 +621,14 @@ const AdminUser = () => {
                     setForm((prev) => ({ ...prev, name: e.target.value }))
                   }
                   required
-                  className="w-full min-h-12 rounded-lg border border-outline-variant bg-surface-container px-cozy text-body-md outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  className={fieldClass}
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="user-email"
-                  className="block font-label-sm text-label-sm text-on-surface-variant mb-tight"
+                  className="block font-label-sm text-label-sm text-[var(--uw-muted)] mb-tight"
                 >
                   Email
                 </label>
@@ -533,7 +640,7 @@ const AdminUser = () => {
                     setForm((prev) => ({ ...prev, email: e.target.value }))
                   }
                   required
-                  className="w-full min-h-12 rounded-lg border border-outline-variant bg-surface-container px-cozy text-body-md outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  className={fieldClass}
                 />
               </div>
 
@@ -541,7 +648,7 @@ const AdminUser = () => {
                 <div>
                   <label
                     htmlFor="user-password"
-                    className="block font-label-sm text-label-sm text-on-surface-variant mb-tight"
+                    className="block font-label-sm text-label-sm text-[var(--uw-muted)] mb-tight"
                   >
                     Temporary password
                   </label>
@@ -558,12 +665,12 @@ const AdminUser = () => {
                       }
                       required
                       minLength={8}
-                      className="w-full min-h-12 rounded-lg border border-outline-variant bg-surface-container pl-cozy pr-12 text-body-md outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+                      className={`${fieldClass} pr-12`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex min-h-11 min-w-11 items-center justify-center text-on-surface-variant"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--uw-muted)]"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? (
@@ -577,7 +684,7 @@ const AdminUser = () => {
               ) : null}
 
               <div>
-                <p className="font-label-sm text-label-sm text-on-surface-variant mb-tight">
+                <p className="font-label-sm text-label-sm text-[var(--uw-muted)] mb-tight">
                   Role
                 </p>
                 <div className="grid grid-cols-2 gap-snug">
@@ -591,10 +698,10 @@ const AdminUser = () => {
                         selected?.id === session?.id &&
                         role !== "ADMIN"
                       }
-                      className={`min-h-12 rounded-xl border px-cozy font-bold transition-colors disabled:opacity-50 ${
+                      className={`min-h-12 rounded-full border px-cozy font-bold transition-colors disabled:opacity-50 ${
                         form.role === role
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-outline-variant text-on-surface-variant hover:bg-surface-container"
+                          ? "border-[var(--uw-cyan)]/40 bg-[var(--uw-cyan)]/10 text-[var(--uw-cyan)]"
+                          : "border-white/10 text-[var(--uw-muted)] hover:bg-white/5"
                       }`}
                     >
                       <span className="inline-flex items-center justify-center gap-tight">
@@ -611,7 +718,7 @@ const AdminUser = () => {
               </div>
 
               {formError ? (
-                <p className="text-error text-body-md" role="alert">
+                <p className="text-[#ff6b6b] text-body-md" role="alert">
                   {formError}
                 </p>
               ) : null}
@@ -621,14 +728,14 @@ const AdminUser = () => {
                   type="button"
                   onClick={closeModal}
                   disabled={saving}
-                  className="min-h-12 rounded-xl border border-outline-variant px-cozy font-bold text-on-surface hover:bg-surface-container transition-colors"
+                  className="min-h-12 rounded-full border border-white/10 px-cozy font-bold text-[var(--uw-text)] hover:bg-white/5 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="min-h-12 rounded-xl bg-primary px-cozy font-bold text-on-primary hover:bg-surface-tint disabled:opacity-60 transition-colors"
+                  className="min-h-12 rounded-full uw-gradient px-cozy font-bold hover:brightness-110 disabled:opacity-60 transition-all"
                 >
                   {saving
                     ? "Saving…"
@@ -646,7 +753,7 @@ const AdminUser = () => {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-gutter">
           <button
             type="button"
-            className="absolute inset-0 bg-on-surface/45"
+            className="absolute inset-0 bg-black/70"
             aria-label="Close dialog"
             onClick={closeModal}
           />
@@ -654,18 +761,20 @@ const AdminUser = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-modal-title"
-            className="relative z-10 w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-roomy shadow-2xl"
+            className="relative z-10 w-full max-w-md rounded-[1.75rem] border border-white/10 bg-[var(--uw-card)] p-roomy shadow-2xl"
           >
             <h2
               id="delete-modal-title"
-              className="font-headline-md text-headline-md text-on-surface"
+              className="font-headline-md text-headline-md text-[var(--uw-text)]"
             >
               Delete user?
             </h2>
-            <p className="mt-cozy text-body-md text-on-surface-variant">
+            <p className="mt-cozy text-body-md text-[var(--uw-muted)]">
               Remove{" "}
-              <span className="font-bold text-on-surface">{selected.name}</span> (
-              {selected.email}). Their profile and linked ownership will be
+              <span className="font-bold text-[var(--uw-text)]">
+                {selected.name}
+              </span>{" "}
+              ({selected.email}). Their profile and linked ownership will be
               cleared. This cannot be undone.
             </p>
             <div className="mt-cozy">
@@ -673,7 +782,7 @@ const AdminUser = () => {
             </div>
 
             {formError ? (
-              <p className="mt-cozy text-error text-body-md" role="alert">
+              <p className="mt-cozy text-[#ff6b6b] text-body-md" role="alert">
                 {formError}
               </p>
             ) : null}
@@ -683,7 +792,7 @@ const AdminUser = () => {
                 type="button"
                 onClick={closeModal}
                 disabled={saving}
-                className="min-h-12 rounded-xl border border-outline-variant px-cozy font-bold text-on-surface hover:bg-surface-container transition-colors"
+                className="min-h-12 rounded-full border border-white/10 px-cozy font-bold text-[var(--uw-text)] hover:bg-white/5 transition-colors"
               >
                 Cancel
               </button>
@@ -691,7 +800,7 @@ const AdminUser = () => {
                 type="button"
                 onClick={() => void handleDelete()}
                 disabled={saving}
-                className="min-h-12 rounded-xl bg-error px-cozy font-bold text-on-error hover:brightness-95 disabled:opacity-60 transition-all"
+                className="min-h-12 rounded-full bg-[#ff3b30] px-cozy font-bold text-white hover:brightness-95 disabled:opacity-60 transition-all"
               >
                 {saving ? "Deleting…" : "Delete user"}
               </button>

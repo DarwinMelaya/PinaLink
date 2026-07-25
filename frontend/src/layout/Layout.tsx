@@ -39,10 +39,10 @@ type LayoutProps = {
 
 const Layout = ({ children }: LayoutProps) => {
   return (
-    <div className="min-h-screen bg-surface text-on-surface font-body-md">
+    <div className="user-workspace min-h-screen font-body-md">
       <Navbar />
       <main>{children}</main>
-      <footer className="w-full py-wide bg-surface-container dark:bg-surface-container-lowest transition-standard">
+      <footer className="w-full py-wide border-t border-white/5 bg-[var(--uw-elevated)]">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-gutter px-gutter max-w-container-max mx-auto">
           <div className="md:col-span-1">
             <Link to="/" className="inline-flex items-center mb-cozy">
@@ -52,20 +52,20 @@ const Layout = ({ children }: LayoutProps) => {
                 src={LOGO_SRC}
               />
             </Link>
-            <p className="font-label-sm text-label-sm text-on-surface-variant leading-relaxed">
-              © 2024 Pinalink. Precision shortening for modern scale.
+            <p className="font-label-sm text-label-sm text-[var(--uw-muted)] leading-relaxed">
+              © 2024 Pinalink. Shorten. Share. Connect.
             </p>
           </div>
           {FOOTER_COLUMNS.map((column) => (
             <div key={column.title}>
-              <h4 className="font-label-sm text-label-sm text-on-surface font-bold mb-cozy uppercase tracking-wider">
+              <h4 className="font-label-sm text-label-sm text-[var(--uw-text)] font-bold mb-cozy uppercase tracking-wider">
                 {column.title}
               </h4>
               <ul className="space-y-snug">
                 {column.links.map((link) => (
                   <li key={`${column.title}-${link.label}`}>
                     <a
-                      className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors duration-200"
+                      className="font-label-sm text-label-sm text-[var(--uw-muted)] hover:text-[var(--uw-cyan)] transition-colors duration-200"
                       href={link.href}
                     >
                       {link.label}

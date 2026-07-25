@@ -29,12 +29,19 @@ model Profile {
 /// Short URL records. Runtime reads/writes go through Supabase JS (Vite SPA).
 model ShortLink {
   // uuid() also usable at DB via gen_random_uuid(); SPA sends id because Supabase skips Prisma defaults
-  id          String   @id @default(uuid())
-  code        String   @unique @db.VarChar(12)
-  originalUrl String   @map("original_url") @db.Text
-  userId      String?  @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  clickCount  Int      @default(0) @map("click_count")
+  id          String    @id @default(uuid())
+  code        String    @unique @db.VarChar(24)
+  originalUrl String    @map("original_url") @db.Text
+  userId      String?   @map("user_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  clickCount  Int       @default(0) @map("click_count")
+  title       String?   @db.VarChar(120)
+  notes       String?   @db.Text
+  isFavorite  Boolean   @default(false) @map("is_favorite")
+  isActive    Boolean   @default(true) @map("is_active")
+  expiresAt  DateTime? @map("expires_at")
+  /// { fgColor, bgColor, level, size, marginSize, logoDataUrl }
+  qrStyle     Json?     @map("qr_style")
 
   profile Profile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 

@@ -1,5 +1,6 @@
 import supabase from "./supabaseClient";
 import { generateShortCode } from "./shortLink";
+import type { QrStyle } from "./qrStyle";
 
 export type ShortLinkRow = {
   id: string;
@@ -8,9 +9,38 @@ export type ShortLinkRow = {
   user_id: string | null;
   created_at: string;
   click_count: number;
+  title: string | null;
+  notes: string | null;
+  is_favorite: boolean;
+  is_active: boolean;
+  expires_at: string | null;
+  qr_style: QrStyle | Record<string, unknown> | null;
+};
+
+export type ShortLinkUpdate = {
+  code?: string;
+  original_url?: string;
+  title?: string | null;
+  notes?: string | null;
+  is_favorite?: boolean;
+  is_active?: boolean;
+  expires_at?: string | null;
+  qr_style?: QrStyle | null;
 };
 
 const MAX_CODE_RETRIES = 5;
+
+function normalizeRow(data: ShortLinkRow): ShortLinkRow {
+  return {
+    ...data,
+    title: data.title ?? null,
+    notes: data.notes ?? null,
+    is_favorite: data.is_favorite ?? false,
+    is_active: data.is_active ?? true,
+    expires_at: data.expires_at ?? null,
+    qr_style: data.qr_style ?? null,
+  };
+}
 
 export async function createShortLink(
   originalUrl: string,
@@ -33,7 +63,7 @@ export async function createShortLink(
       .single();
 
     if (!error && data) {
-      return data as ShortLinkRow;
+      return normalizeRow(data as ShortLinkRow);
     }
 
     // Unique violation — try another code
@@ -61,7 +91,7 @@ export async function listShortLinksByUser(
     throw new Error(error.message);
   }
 
-  return (data as ShortLinkRow[]) ?? [];
+  return ((data as ShortLinkRow[]) ?? []).map(normalizeRow);
 }
 
 export async function getShortLinkByCode(code: string): Promise<ShortLinkRow | null> {
@@ -75,7 +105,36 @@ export async function getShortLinkByCode(code: string): Promise<ShortLinkRow | n
     throw new Error(error.message);
   }
 
-  return data as ShortLinkRow | null;
+  return data ? normalizeRow(data as ShortLinkRow) : null;
+}
+
+export async function updateShortLink(
+  id: string,
+  patch: ShortLinkUpdate,
+): Promise<ShortLinkRow> {
+  const { data, error } = await supabase
+    .from("short_links")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("That short code is already taken.");
+    }
+    throw new Error(error.message);
+  }
+
+  return normalizeRow(data as ShortLinkRow);
+}
+
+export async function deleteShortLink(id: string): Promise<void> {
+  const { error } = await supabase.from("short_links").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function incrementClickCount(id: string, current: number): Promise<void> {

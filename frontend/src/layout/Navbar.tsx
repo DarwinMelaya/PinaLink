@@ -18,12 +18,12 @@ const Navbar = () => {
     <header className="sticky top-0 z-50 w-full pointer-events-none">
       <div className="px-gutter pt-tight md:pt-snug pb-tight">
         <nav
-          className="pointer-events-auto mx-auto max-w-container-max flex items-center justify-between gap-snug rounded-full border border-outline-variant/60 bg-surface-container-lowest px-snug py-tight shadow-[0_8px_30px_rgba(25,27,35,0.08)] md:px-cozy md:py-2.5"
+          className="pointer-events-auto mx-auto max-w-container-max flex items-center justify-between gap-snug rounded-full border border-white/10 bg-[var(--uw-card)]/90 backdrop-blur-md px-snug py-tight shadow-[0_8px_30px_rgba(0,0,0,0.35)] md:px-cozy md:py-2.5"
           aria-label="Primary"
         >
           <Link
             to="/"
-            className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+            className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--uw-cyan)]/40"
             onClick={() => setMenuOpen(false)}
           >
             <img
@@ -33,7 +33,7 @@ const Navbar = () => {
             />
           </Link>
 
-          <div className="hidden md:flex flex-1 items-center justify-center gap-6 lg:gap-8">
+          <div className="hidden md:flex flex-1 items-center justify-center gap-tight lg:gap-snug">
             {NAV_LINKS.map((link) => {
               const isActive = activeHref === link.href;
               return (
@@ -41,11 +41,12 @@ const Navbar = () => {
                   key={link.href}
                   href={link.href}
                   onClick={() => setActiveHref(link.href)}
-                  className={`font-label-sm text-label-sm uppercase tracking-[0.08em] transition-colors duration-200 min-h-11 inline-flex items-center ${
+                  className={[
+                    "inline-flex min-h-11 items-center rounded-full px-cozy font-label-sm text-label-sm uppercase tracking-[0.08em] transition-colors",
                     isActive
-                      ? "text-primary font-bold"
-                      : "text-on-surface-variant hover:text-primary"
-                  }`}
+                      ? "uw-gradient font-bold"
+                      : "text-[var(--uw-muted)] hover:text-[var(--uw-text)] hover:bg-white/5",
+                  ].join(" ")}
                 >
                   {link.label}
                 </a>
@@ -53,16 +54,16 @@ const Navbar = () => {
             })}
           </div>
 
-          <div className="hidden md:flex items-center gap-snug shrink-0">
+          <div className="hidden md:flex items-center gap-tight shrink-0">
             <Link
               to="/login"
-              className="font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:text-primary transition-colors min-h-11 inline-flex items-center px-tight"
+              className="inline-flex min-h-11 items-center rounded-full px-cozy font-label-sm text-label-sm uppercase tracking-[0.08em] text-[var(--uw-muted)] hover:text-[var(--uw-text)] hover:bg-white/5 transition-colors"
             >
               Login
             </Link>
             <Link
               to="/signup"
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-b from-primary-container to-primary px-cozy text-on-primary font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_6px_20px_rgba(0,74,198,0.35)] hover:brightness-105 active:scale-[0.98] transition-all"
+              className="inline-flex min-h-11 items-center justify-center rounded-full uw-gradient px-cozy font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_0_20px_rgba(0,212,197,0.25)] hover:brightness-110 active:scale-[0.98] transition-all"
             >
               Sign Up
             </Link>
@@ -70,7 +71,7 @@ const Navbar = () => {
 
           <button
             type="button"
-            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-surface hover:bg-surface-container transition-colors"
+            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[var(--uw-text)] hover:bg-white/5 transition-colors"
             aria-expanded={menuOpen}
             aria-controls="mobile-nav"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -83,7 +84,7 @@ const Navbar = () => {
         {menuOpen ? (
           <div
             id="mobile-nav"
-            className="pointer-events-auto md:hidden mt-tight mx-auto max-w-container-max rounded-[1.5rem] border border-outline-variant/60 bg-surface-container-lowest p-snug shadow-[0_8px_30px_rgba(25,27,35,0.08)]"
+            className="pointer-events-auto md:hidden mt-tight mx-auto max-w-container-max rounded-[1.5rem] border border-white/10 bg-[var(--uw-card)] p-snug shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
           >
             <div className="flex flex-col gap-tight">
               {NAV_LINKS.map((link) => (
@@ -94,23 +95,23 @@ const Navbar = () => {
                     setActiveHref(link.href);
                     setMenuOpen(false);
                   }}
-                  className="min-h-11 inline-flex items-center px-snug rounded-full font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors"
+                  className="min-h-11 inline-flex items-center px-snug rounded-full font-label-sm text-label-sm uppercase tracking-[0.08em] text-[var(--uw-muted)] hover:bg-white/5 hover:text-[var(--uw-text)] transition-colors"
                 >
                   {link.label}
                 </a>
               ))}
-              <div className="h-px bg-outline-variant/60 my-tight" />
+              <div className="h-px bg-white/10 my-tight" />
               <Link
                 to="/login"
                 onClick={() => setMenuOpen(false)}
-                className="min-h-11 inline-flex items-center justify-center rounded-full font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:bg-surface-container-low"
+                className="min-h-11 inline-flex items-center justify-center rounded-full font-label-sm text-label-sm uppercase tracking-[0.08em] text-[var(--uw-muted)] hover:bg-white/5"
               >
                 Login
               </Link>
               <Link
                 to="/signup"
                 onClick={() => setMenuOpen(false)}
-                className="min-h-11 inline-flex items-center justify-center rounded-full bg-gradient-to-b from-primary-container to-primary px-cozy text-on-primary font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_6px_20px_rgba(0,74,198,0.35)]"
+                className="min-h-11 inline-flex items-center justify-center rounded-full uw-gradient px-cozy font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold"
               >
                 Sign Up
               </Link>

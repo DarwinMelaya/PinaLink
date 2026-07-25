@@ -157,4 +157,74 @@
   .animate-login-rise {
     animation: login-rise 0.5s ease-out;
   }
+
+  /* User workspace — brand navy/cyan from pinalink_logo.png */
+  .user-workspace {
+    --uw-bg: #000000;
+    --uw-elevated: #0a0f18;
+    --uw-card: #0f1624;
+    --uw-card-hover: #152033;
+    --uw-navy: #002b5b;
+    --uw-cyan: #00d4c5;
+    /* Accents used across user UI (cyan primary, navy secondary) */
+    --uw-lime: #00d4c5;
+    --uw-orange: #1b4f8a;
+    --uw-muted: #7a8fa8;
+    --uw-faint: #1a2740;
+    --uw-text: #f0f7ff;
+    --uw-on-accent: #001428;
+    --uw-gradient: linear-gradient(90deg, #002b5b 0%, #00d4c5 100%);
+    color: var(--uw-text);
+    background: var(--uw-bg);
+  }
+
+  .uw-gradient {
+    background-image: var(--uw-gradient);
+    color: var(--uw-on-accent);
+  }
+
+  .uw-gradient-text {
+    background-image: var(--uw-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  @keyframes uw-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes uw-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .uw-rise {
+    animation: uw-rise 0.45s ease-out both;
+  }
+
+  .uw-rise-delay-1 {
+    animation: uw-rise 0.45s ease-out 0.08s both;
+  }
+
+  .uw-rise-delay-2 {
+    animation: uw-rise 0.45s ease-out 0.16s both;
+  }
+
+  .uw-pop {
+    animation: uw-pop 0.35s ease-out both;
+  }
 }
