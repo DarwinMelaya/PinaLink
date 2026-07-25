@@ -7,6 +7,11 @@ const LandingPage = () => {
       <section className="relative pt-wide pb-roomy overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary-fixed/20 via-transparent to-transparent" />
         <div className="max-w-container-max mx-auto px-gutter text-center">
+          <img
+            src="/img/pinalink_logo.png"
+            alt="Pinalink"
+            className="mx-auto mb-roomy h-36 w-auto max-w-full object-contain sm:h-48 md:h-56 lg:h-64"
+          />
           <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface mb-cozy max-w-3xl mx-auto">
             Shorten Your Links,{" "}
             <span className="text-primary">Expand Your Reach.</span>
