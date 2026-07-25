@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { getSession, type UserRole } from "../../utils/authApi";
+import { getSession, homePathForRole, type UserRole } from "../../utils/authApi";
 import AdminLayout from "../../layout/AdminLayout";
+import UserLayout from "../../layout/UserLayout";
 
 type ProtectedRouteProps = {
   role?: UserRole;
@@ -13,14 +14,22 @@ const ProtectedRoute = ({ role = "ADMIN" }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (role === "ADMIN" && session.role !== "ADMIN") {
-    return <Navigate to="/" replace />;
+  if (session.role !== role) {
+    return <Navigate to={homePathForRole(session.role)} replace />;
+  }
+
+  if (role === "ADMIN") {
+    return (
+      <AdminLayout>
+        <Outlet />
+      </AdminLayout>
+    );
   }
 
   return (
-    <AdminLayout>
+    <UserLayout>
       <Outlet />
-    </AdminLayout>
+    </UserLayout>
   );
 };
 

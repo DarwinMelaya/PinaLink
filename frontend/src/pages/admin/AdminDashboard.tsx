@@ -53,16 +53,16 @@ const AdminDashboard = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-snug">
           <Link
-            to="/"
+            to="/admin/user"
             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-cozy text-on-primary font-bold hover:bg-surface-tint transition-colors"
           >
-            Create New Link
+            Manage Users
           </Link>
           <Link
-            to="/admin/user"
+            to="/admin/analytics"
             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-outline-variant px-cozy text-on-surface font-bold hover:bg-surface-container-low transition-colors"
           >
-            Manage Users
+            View Analytics
           </Link>
         </div>
       </div>

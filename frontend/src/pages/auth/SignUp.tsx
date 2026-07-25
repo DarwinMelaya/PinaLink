@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
-import { registerProfile, signInWithGoogle } from "../../utils/authApi";
+import { registerProfile, signInWithGoogle, homePathForRole } from "../../utils/authApi";
 
 const LOGO_SRC = "/img/pinalink_logo.png";
 
@@ -48,7 +48,7 @@ const SignUp = () => {
         password,
         role: "USER",
       });
-      navigate("/", { replace: true });
+      navigate(homePathForRole("USER"), { replace: true });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Registration failed.";

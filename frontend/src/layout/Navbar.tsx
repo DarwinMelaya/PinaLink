@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
-import { getSession, logout, type PublicProfile } from "../utils/authApi";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 
 const LOGO_SRC = "/img/pinalink_logo.png";
 
@@ -12,24 +11,8 @@ const NAV_LINKS = [
 ] as const;
 
 const Navbar = () => {
-  const navigate = useNavigate();
   const [activeHref, setActiveHref] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [profile, setProfile] = useState<PublicProfile | null>(() => getSession());
-
-  useEffect(() => {
-    setProfile(getSession());
-  }, []);
-
-  async function handleLogout() {
-    setMenuOpen(false);
-    await logout();
-    setProfile(null);
-    navigate("/", { replace: true });
-  }
-
-  const isLoggedIn = profile !== null;
-  const displayName = profile?.name?.trim() || "User";
 
   return (
     <header className="sticky top-0 z-50 w-full pointer-events-none">
@@ -71,39 +54,18 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-snug shrink-0">
-            {isLoggedIn ? (
-              <>
-                <span
-                  className="max-w-[10rem] truncate font-label-sm text-label-sm text-on-surface font-bold px-tight"
-                  title={displayName}
-                >
-                  {displayName}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleLogout()}
-                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full border border-outline-variant px-cozy text-on-surface-variant font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold hover:bg-surface-container-low hover:text-error transition-all"
-                >
-                  <LogOut size={16} aria-hidden />
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:text-primary transition-colors min-h-11 inline-flex items-center px-tight"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/signup"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-b from-primary-container to-primary px-cozy text-on-primary font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_6px_20px_rgba(0,74,198,0.35)] hover:brightness-105 active:scale-[0.98] transition-all"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
+            <Link
+              to="/login"
+              className="font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:text-primary transition-colors min-h-11 inline-flex items-center px-tight"
+            >
+              Login
+            </Link>
+            <Link
+              to="/signup"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-b from-primary-container to-primary px-cozy text-on-primary font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_6px_20px_rgba(0,74,198,0.35)] hover:brightness-105 active:scale-[0.98] transition-all"
+            >
+              Sign Up
+            </Link>
           </div>
 
           <button
@@ -138,38 +100,20 @@ const Navbar = () => {
                 </a>
               ))}
               <div className="h-px bg-outline-variant/60 my-tight" />
-              {isLoggedIn ? (
-                <>
-                  <p className="px-snug py-tight font-label-sm text-label-sm text-on-surface font-bold truncate">
-                    {displayName}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void handleLogout()}
-                    className="min-h-11 inline-flex items-center justify-center gap-tight rounded-full border border-outline-variant px-cozy font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold text-error hover:bg-error-container/50"
-                  >
-                    <LogOut size={16} aria-hidden />
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    onClick={() => setMenuOpen(false)}
-                    className="min-h-11 inline-flex items-center justify-center rounded-full font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:bg-surface-container-low"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    to="/signup"
-                    onClick={() => setMenuOpen(false)}
-                    className="min-h-11 inline-flex items-center justify-center rounded-full bg-gradient-to-b from-primary-container to-primary px-cozy text-on-primary font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_6px_20px_rgba(0,74,198,0.35)]"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
+              <Link
+                to="/login"
+                onClick={() => setMenuOpen(false)}
+                className="min-h-11 inline-flex items-center justify-center rounded-full font-label-sm text-label-sm uppercase tracking-[0.08em] text-on-surface-variant hover:bg-surface-container-low"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                onClick={() => setMenuOpen(false)}
+                className="min-h-11 inline-flex items-center justify-center rounded-full bg-gradient-to-b from-primary-container to-primary px-cozy text-on-primary font-label-sm text-label-sm uppercase tracking-[0.06em] font-bold shadow-[0_6px_20px_rgba(0,74,198,0.35)]"
+              >
+                Sign Up
+              </Link>
             </div>
           </div>
         ) : null}

@@ -7,6 +7,8 @@ import {
   AdminDashboard,
   AdminUser,
   RedirectPage,
+  UserDashboard,
+  UserLinksGenerated,
 } from "../pages";
 import ProtectedRoute from "../components/security/ProtectedRoute";
 import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
@@ -22,6 +24,11 @@ const Routers = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        {/* User routes */}
+        <Route path="/user" element={<ProtectedRoute role="USER" />}>
+          <Route path="dashboard" element={<UserDashboard />} />
+          <Route path="links-generated" element={<UserLinksGenerated />} />
+        </Route>
         {/* Admin console — sidebar layout via ProtectedRoute */}
         <Route path="/admin" element={<ProtectedRoute role="ADMIN" />}>
           <Route path="dashboard" element={<AdminDashboard />} />

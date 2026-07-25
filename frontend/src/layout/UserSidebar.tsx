@@ -1,32 +1,32 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
-  LineChart,
-  Settings,
+  Link2,
   LogOut,
   Plus,
-  Link2,
 } from "lucide-react";
 import { getSession, logout } from "../utils/authApi";
 
 const NAV_ITEMS = [
   {
-    to: "/admin/dashboard",
+    to: "/user/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
     end: true,
   },
-  { to: "/admin/user", label: "Users", icon: Users, end: false },
-  { to: "/admin/analytics", label: "Analytics", icon: LineChart, end: false },
-  { to: "/admin/settings", label: "Settings", icon: Settings, end: false },
+  {
+    to: "/user/links-generated",
+    label: "My Links",
+    icon: Link2,
+    end: false,
+  },
 ] as const;
 
-type AdminSidebarProps = {
+type UserSidebarProps = {
   onNavigate?: () => void;
 };
 
-const AdminSidebar = ({ onNavigate }: AdminSidebarProps) => {
+const UserSidebar = ({ onNavigate }: UserSidebarProps) => {
   const navigate = useNavigate();
   const profile = getSession();
 
@@ -35,8 +35,8 @@ const AdminSidebar = ({ onNavigate }: AdminSidebarProps) => {
     navigate("/login", { replace: true });
   }
 
-  const displayName = profile?.name ?? "Admin User";
-  const displayEmail = profile?.email ?? "admin@pinalink.com";
+  const displayName = profile?.name ?? "User";
+  const displayEmail = profile?.email ?? "";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -55,25 +55,25 @@ const AdminSidebar = ({ onNavigate }: AdminSidebarProps) => {
             Pinalink
           </p>
           <p className="font-label-sm text-label-sm text-on-surface-variant tracking-wide">
-            Enterprise Console
+            Workspace
           </p>
         </div>
       </div>
 
       <div className="px-cozy pb-cozy">
         <Link
-          to="/admin/dashboard"
+          to="/user/dashboard"
           onClick={onNavigate}
           className="flex min-h-12 w-full items-center justify-center gap-tight rounded-xl bg-primary text-on-primary font-bold text-body-md shadow-lg shadow-primary/20 hover:bg-surface-tint active:scale-[0.99] transition-all"
         >
           <span className="inline-flex size-6 items-center justify-center rounded-full bg-on-primary/15">
             <Plus size={16} aria-hidden />
           </span>
-          Admin Home
+          Create New Link
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-snug" aria-label="Admin">
+      <nav className="flex-1 overflow-y-auto px-snug" aria-label="User">
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -135,15 +135,17 @@ const AdminSidebar = ({ onNavigate }: AdminSidebarProps) => {
             className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary font-bold text-label-sm"
             aria-hidden
           >
-            {initials || "AU"}
+            {initials || "U"}
           </div>
           <div className="min-w-0">
             <p className="truncate font-bold text-body-md text-on-surface">
               {displayName}
             </p>
-            <p className="truncate font-label-sm text-label-sm text-on-surface-variant">
-              {displayEmail}
-            </p>
+            {displayEmail ? (
+              <p className="truncate font-label-sm text-label-sm text-on-surface-variant">
+                {displayEmail}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -151,4 +153,4 @@ const AdminSidebar = ({ onNavigate }: AdminSidebarProps) => {
   );
 };
 
-export default AdminSidebar;
+export default UserSidebar;
