@@ -21,7 +21,9 @@ model Profile {
   role         UserRole @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
 
-  shortLinks ShortLink[]
+  shortLinks           ShortLink[]
+  certificates         Certificate[]
+  certificateBranding  CertificateBranding?
 
   @@map("profiles")
 }
@@ -47,4 +49,58 @@ model ShortLink {
 
   @@index([userId])
   @@map("short_links")
+}
+
+enum CertificateStatus {
+  VALID
+  REVOKED
+}
+
+enum CertificateTemplate {
+  SEMINAR
+  TRAINING
+  WEBINAR
+  COMPETITION
+  RECOGNITION
+}
+
+/// Verifiable certificates. Runtime reads/writes go through Supabase JS (Vite SPA).
+model Certificate {
+  id                   String               @id @default(uuid())
+  certificateNumber    String               @unique @map("certificate_number") @db.VarChar(64)
+  participantName      String               @map("participant_name") @db.VarChar(200)
+  participantEmail     String?              @map("participant_email") @db.VarChar(255)
+  trainingEventName    String               @map("training_event_name") @db.VarChar(240)
+  dateIssued           DateTime             @map("date_issued")
+  issuingOrganization  String               @map("issuing_organization") @db.VarChar(200)
+  status               CertificateStatus    @default(VALID)
+  template             CertificateTemplate  @default(TRAINING)
+  verifyCount          Int                  @default(0) @map("verify_count")
+  revokedAt            DateTime?            @map("revoked_at")
+  revokeReason         String?              @map("revoke_reason") @db.Text
+  userId               String               @map("user_id")
+  createdAt            DateTime             @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([participantName])
+  @@map("certificates")
+}
+
+/// Per-issuer branding for the public /cert verification page.
+model CertificateBranding {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  /// Data URL (png/jpeg/webp/svg). Keep under ~400KB in the SPA.
+  logoDataUrl String?  @map("logo_data_url") @db.Text
+  pageTitle   String?  @map("page_title") @db.VarChar(120)
+  pageSubtitle String? @map("page_subtitle") @db.VarChar(240)
+  accentColor String?  @map("accent_color") @db.VarChar(7)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("certificate_branding")
 }

@@ -10,6 +10,7 @@ import {
   UserDashboard,
   UserLinksGenerated,
   UserVerifiedCertificate,
+  VerifyCertificatePage,
 } from "../pages";
 import ProtectedRoute from "../components/security/ProtectedRoute";
 import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
@@ -21,6 +22,11 @@ const Routers = () => {
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/s/:code" element={<RedirectPage />} />
+        <Route path="/cert" element={<VerifyCertificatePage />} />
+        <Route
+          path="/cert/:certificateNumber"
+          element={<VerifyCertificatePage />}
+        />
         {/* Auth routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />

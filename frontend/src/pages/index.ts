@@ -17,3 +17,6 @@ export { default as AdminUser } from "./admin/AdminUser";
 export { default as UserDashboard } from "./users/UserDashboard";
 export { default as UserLinksGenerated } from "./users/UserLinksGenerated";
 export { default as UserVerifiedCertificate } from "./users/UserVerifiedCertificate";
+
+// public certificate verify
+export { default as VerifyCertificatePage } from "./verify/VerifyCertificatePage";
