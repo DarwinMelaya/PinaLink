@@ -230,89 +230,261 @@
 
   /* 3D phone mockup (landing hero) */
   .phone-scene {
-    perspective: 1200px;
-    perspective-origin: 50% 40%;
+    perspective: 980px;
+    perspective-origin: 50% 42%;
   }
 
   .phone-float {
-    animation: phone-float 5.5s ease-in-out infinite;
     transform-style: preserve-3d;
   }
 
   .phone-3d {
+    /* Frame thickness: drives the depth of every side face and the back plate */
+    --phone-depth: 28px;
     position: relative;
-    transform: rotateY(-18deg) rotateX(8deg) rotateZ(-2deg);
     transform-style: preserve-3d;
-    transition: transform 0.45s ease;
+    will-change: transform;
   }
 
-  .phone-scene:hover .phone-3d {
-    transform: rotateY(-8deg) rotateX(4deg) rotateZ(0deg);
+  .phone-halo {
+    position: absolute;
+    inset: auto -6% -6% -6%;
+    height: 10rem;
+    border-radius: 999px;
+    pointer-events: none;
+    filter: blur(42px);
+    background: radial-gradient(
+      ellipse at center,
+      rgba(0, 212, 197, 0.55),
+      rgba(0, 43, 91, 0.45) 45%,
+      transparent 72%
+    );
+  }
+
+  .phone-shadow {
+    position: absolute;
+    inset: auto 12% -6% 12%;
+    height: 3.25rem;
+    pointer-events: none;
+    filter: blur(16px);
+    background: radial-gradient(
+      ellipse at center,
+      rgba(0, 0, 0, 0.85),
+      transparent 70%
+    );
+    transform: translateZ(calc(var(--phone-depth) * -3));
   }
 
   .phone-body {
     position: relative;
     z-index: 2;
-    border-radius: 2.25rem;
-    padding: 0.55rem;
-    background: linear-gradient(160deg, #2a3344 0%, #0c1018 45%, #1a222f 100%);
+    padding: 0.5rem;
+    border-radius: 2.6rem;
+    transform-style: preserve-3d;
+    background: linear-gradient(
+      155deg,
+      #5c6980 0%,
+      #161d29 26%,
+      #0a0e15 58%,
+      #202836 78%,
+      #4b566c 100%
+    );
     box-shadow:
-      0 25px 50px -12px rgba(0, 0, 0, 0.75),
-      0 0 0 1px rgba(255, 255, 255, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    aspect-ratio: 9 / 19.2;
-    transform: translateZ(18px);
+      0 45px 80px -25px rgba(0, 0, 0, 0.9),
+      0 18px 35px -18px rgba(0, 0, 0, 0.8),
+      0 0 55px -18px rgba(0, 212, 197, 0.4),
+      0 0 0 1px rgba(255, 255, 255, 0.09);
   }
 
-  .phone-side {
+  .phone-back {
     position: absolute;
-    inset: 0.4rem -0.35rem 0.4rem auto;
-    width: 0.7rem;
-    border-radius: 0.35rem;
-    background: linear-gradient(180deg, #3a4558, #121820);
-    transform: translateZ(0) rotateY(90deg) translateZ(-2px);
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(160deg, #232d3c 0%, #05070b 55%, #151d2a 100%);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+    transform: translateZ(calc(var(--phone-depth) * -1));
+  }
+
+  .phone-face {
+    position: absolute;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      #46536a 0%,
+      #131a25 42%,
+      #05080d 74%,
+      #2b3444 100%
+    );
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.65);
+  }
+
+  .phone-face-left {
+    top: 5%;
+    bottom: 5%;
+    left: 0;
+    width: var(--phone-depth);
+    border-radius: 0.35rem 0 0 0.35rem;
+    transform-origin: left center;
+    transform: rotateY(90deg);
+  }
+
+  .phone-face-right {
+    top: 5%;
+    bottom: 5%;
+    right: 0;
+    width: var(--phone-depth);
+    border-radius: 0 0.35rem 0.35rem 0;
     transform-origin: right center;
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+    transform: rotateY(-90deg);
   }
 
-  .phone-notch {
+  .phone-face-top {
+    top: 0;
+    left: 9%;
+    right: 9%;
+    height: var(--phone-depth);
+    transform-origin: center top;
+    transform: rotateX(-90deg);
+  }
+
+  .phone-face-bottom {
+    bottom: 0;
+    left: 9%;
+    right: 9%;
+    height: var(--phone-depth);
+    transform-origin: center bottom;
+    transform: rotateX(90deg);
+  }
+
+  .phone-btn {
     position: absolute;
-    top: 0.85rem;
-    left: 50%;
-    z-index: 3;
-    width: 28%;
-    height: 1.05rem;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: #05070c;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    left: 15%;
+    right: 15%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #9aa5ba, #3b4557);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+
+  .phone-btn-mute {
+    top: 17%;
+    height: 3%;
+  }
+
+  .phone-btn-vol-up {
+    top: 25%;
+    height: 6%;
+  }
+
+  .phone-btn-vol-down {
+    top: 33%;
+    height: 6%;
+  }
+
+  .phone-btn-power {
+    top: 26%;
+    height: 9%;
   }
 
   .phone-screen {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    border-radius: 1.75rem;
+    position: relative;
     overflow: hidden;
+    border-radius: 2.1rem;
     background: #000000;
-    background-image:
-      radial-gradient(ellipse at top, rgba(0, 212, 197, 0.12), transparent 55%),
-      radial-gradient(ellipse at bottom left, rgba(0, 43, 91, 0.35), transparent 50%);
+    transform: translateZ(1px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+      inset 0 0 24px rgba(0, 0, 0, 0.9);
   }
 
-  @keyframes phone-float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-14px);
-    }
+  .phone-shot {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    pointer-events: none;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .phone-float {
-      animation: none;
-    }
+  .phone-sheen,
+  .phone-glare,
+  .phone-sweep {
+    position: absolute;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .phone-sheen {
+    inset: 0;
+    opacity: 0.55;
+  }
+
+  .phone-glare {
+    inset: 0;
+    background: linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.05) 16%,
+      transparent 34%,
+      transparent 68%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+  }
+
+  .phone-sweep {
+    top: -25%;
+    bottom: -25%;
+    left: 0;
+    width: 40%;
+    filter: blur(6px);
+    background: linear-gradient(
+      100deg,
+      transparent,
+      rgba(255, 255, 255, 0.18),
+      transparent
+    );
+  }
+
+  .phone-rim {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0.06) 9%,
+      transparent 22%,
+      transparent 78%,
+      rgba(0, 212, 197, 0.22) 100%
+    );
+    mix-blend-mode: screen;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  .phone-reflection {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0.5rem;
+    right: 0.5rem;
+    height: 30%;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.22;
+    filter: blur(1px);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.7),
+      transparent 72%
+    );
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 72%);
+  }
+
+  .phone-reflection .phone-shot {
+    transform: scaleY(-1);
   }
 }

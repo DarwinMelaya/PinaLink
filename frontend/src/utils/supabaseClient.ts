@@ -13,7 +13,9 @@ const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    // AuthCallback exchanges the PKCE code once — auto-detect would double-consume it
+    // (React Strict Mode remount → flow_state_already_used).
+    detectSessionInUrl: false,
     flowType: "pkce",
   },
 });

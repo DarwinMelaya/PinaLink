@@ -266,17 +266,61 @@ export async function signInWithGoogle(role: UserRole = "USER"): Promise<void> {
 
 /** After Google OAuth or email-confirm redirect. */
 let authCallbackInflight: Promise<PublicProfile> | null = null;
+let authCallbackCached: PublicProfile | null = null;
+
+function readOAuthErrorFromUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get("error");
+  if (!error) return null;
+  const description = params.get("error_description");
+  if (description) {
+    return description.replace(/\+/g, " ");
+  }
+  return error;
+}
+
+function stripAuthParamsFromUrl(): void {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("code");
+  url.searchParams.delete("state");
+  url.searchParams.delete("error");
+  url.searchParams.delete("error_code");
+  url.searchParams.delete("error_description");
+  window.history.replaceState({}, document.title, `${url.pathname}${url.hash}`);
+}
 
 export async function completeAuthCallback(): Promise<PublicProfile> {
+  if (authCallbackCached) {
+    return authCallbackCached;
+  }
   if (authCallbackInflight) {
     return authCallbackInflight;
   }
 
   authCallbackInflight = (async () => {
-    // PKCE: exchange ?code= if present (ignore if already exchanged)
+    const oauthError = readOAuthErrorFromUrl();
+    if (oauthError) {
+      stripAuthParamsFromUrl();
+      throw new Error(oauthError);
+    }
+
     const code = new URLSearchParams(window.location.search).get("code");
     if (code) {
-      await supabase.auth.exchangeCodeForSession(code);
+      const { error: exchangeError } =
+        await supabase.auth.exchangeCodeForSession(code);
+      // Remove code immediately so Strict Mode remount cannot reuse it
+      stripAuthParamsFromUrl();
+
+      if (exchangeError) {
+        const alreadyUsed =
+          /flow_state_already_used|already been used|invalid.?request/i.test(
+            exchangeError.message,
+          );
+        if (!alreadyUsed) {
+          throw new Error(exchangeError.message);
+        }
+        // First mount may have succeeded; fall through to getSession
+      }
     }
 
     const { data, error } = await supabase.auth.getSession();
@@ -288,7 +332,10 @@ export async function completeAuthCallback(): Promise<PublicProfile> {
         "No active session. Try Google again, or open the confirm link from your email.",
       );
     }
-    return upsertProfileFromAuthUser(data.session.user);
+
+    const profile = await upsertProfileFromAuthUser(data.session.user);
+    authCallbackCached = profile;
+    return profile;
   })().finally(() => {
     authCallbackInflight = null;
   });

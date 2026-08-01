@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
 import { registerProfile, signInWithGoogle, homePathForRole } from "../../utils/authApi";
@@ -9,6 +9,14 @@ const fieldClass =
   "w-full min-h-12 pl-11 pr-4 bg-[var(--uw-elevated)] rounded-full border border-white/10 text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] focus:border-[var(--uw-cyan)]/50 focus:ring-2 focus:ring-[var(--uw-cyan)]/20 outline-none transition-all";
 
 type SubmitStatus = "idle" | "loading" | "error";
+
+function oauthErrorFromSearch(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get("error")) return null;
+  const description = params.get("error_description");
+  if (description) return description.replace(/\+/g, " ");
+  return params.get("error");
+}
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -23,6 +31,14 @@ const SignUp = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [oauthLoading, setOauthLoading] = useState(false);
+
+  useEffect(() => {
+    const oauthError = oauthErrorFromSearch();
+    if (!oauthError) return;
+    setStatus("error");
+    setErrorMessage(oauthError);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

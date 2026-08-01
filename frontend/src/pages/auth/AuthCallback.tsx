@@ -20,9 +20,16 @@ const AuthCallback = () => {
         navigate(homePathForRole(profile.role), { replace: true });
       } catch (err) {
         if (cancelled) return;
-        setErrorMessage(
-          err instanceof Error ? err.message : "Could not complete sign-in.",
-        );
+        const message =
+          err instanceof Error ? err.message : "Could not complete sign-in.";
+        // Friendly copy for the common double-exchange race
+        if (/flow_state_already_used|already been used/i.test(message)) {
+          setErrorMessage(
+            "Google sign-in was interrupted. Close extra tabs and try again once.",
+          );
+        } else {
+          setErrorMessage(message);
+        }
       }
     }
 
@@ -44,11 +51,16 @@ const AuthCallback = () => {
           </p>
           {isProviderError ? (
             <p className="text-on-surface-variant text-body-md text-left">
-              Enable Google in Supabase Auth Providers and add redirect{" "}
+              Enable Google in Supabase Auth Providers. Add redirect URLs for
+              both local and production, e.g.{" "}
               <code className="font-mono-label text-label-sm">
                 {window.location.origin}/auth/callback
+              </code>{" "}
+              and{" "}
+              <code className="font-mono-label text-label-sm">
+                https://pina-link.vercel.app/auth/callback
               </code>
-              .
+              . Set Site URL to your live domain in production.
             </p>
           ) : null}
           <Link

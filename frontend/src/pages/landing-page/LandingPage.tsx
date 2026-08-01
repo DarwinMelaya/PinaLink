@@ -1,5 +1,5 @@
-import { useRef, type MouseEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Link2, QrCode, BarChart3, BadgeCheck } from "lucide-react";
 import {
   motion,
@@ -89,8 +89,17 @@ function WordReveal({ words, className, gradient, reduce }: WordRevealProps) {
 }
 
 const LandingPage = () => {
+  const navigate = useNavigate();
   const reduce = useReducedMotion();
   const heroRef = useRef<HTMLElement>(null);
+
+  // Supabase Site URL errors land on `/` — send them to login with the message
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("error")) return;
+    navigate(`/login?${params.toString()}`, { replace: true });
+  }, [navigate]);
+
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],

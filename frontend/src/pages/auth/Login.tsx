@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { homePathForRole, loginWithEmail, signInWithGoogle } from "../../utils/authApi";
@@ -10,6 +10,14 @@ const fieldClass =
 
 type SubmitStatus = "idle" | "loading" | "error";
 
+function oauthErrorFromSearch(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get("error")) return null;
+  const description = params.get("error_description");
+  if (description) return description.replace(/\+/g, " ");
+  return params.get("error");
+}
+
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +27,14 @@ const Login = () => {
   const [status, setStatus] = useState<SubmitStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [oauthLoading, setOauthLoading] = useState(false);
+
+  useEffect(() => {
+    const oauthError = oauthErrorFromSearch();
+    if (!oauthError) return;
+    setStatus("error");
+    setErrorMessage(oauthError);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
