@@ -13,10 +13,17 @@ import {
   QrCode,
   Star,
   PauseCircle,
+  PlayCircle,
   Clock,
   Activity,
   LayoutDashboard,
   Sparkles,
+  RefreshCw,
+  Download,
+  Share2,
+  CopyPlus,
+  Trash2,
+  Heart,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { getSession } from "../../utils/authApi";
@@ -28,6 +35,9 @@ import {
   QR_FEATURE_HIGHLIGHTS,
 } from "../../utils/qrStyle";
 import {
+  deleteShortLink,
+  duplicateShortLink,
+  exportShortLinksCsv,
   listShortLinksByUser,
   updateShortLink,
   type ShortLinkRow,
@@ -38,6 +48,8 @@ import QrStudioPanel from "./QrStudioPanel";
 type StudioTab = "overview" | "edit" | "qr";
 type SortMode = "newest" | "clicks" | "alpha";
 type FilterMode = "all" | "favorites" | "paused" | "expired";
+
+const EXPIRING_SOON_MS = 7 * 24 * 60 * 60 * 1000;
 
 function displayHost(shortUrl: string): string {
   return shortUrl.replace(/^https?:\/\//, "");
@@ -60,6 +72,14 @@ function formatRelativeDate(iso: string): string {
   });
 }
 
+function isExpiringSoon(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false;
+  const t = new Date(expiresAt).getTime();
+  if (Number.isNaN(t)) return false;
+  const now = Date.now();
+  return t > now && t - now <= EXPIRING_SOON_MS;
+}
+
 function barTone(row: ShortLinkRow, index: number): string {
   if (!row.is_active || isLinkExpired(row.expires_at)) {
     return "bg-white/10 text-[var(--uw-muted)] ring-1 ring-white/10";
@@ -75,12 +95,17 @@ const UserLinksGenerated = () => {
   const [myLinks, setMyLinks] = useState<ShortLinkRow[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [studioTab, setStudioTab] = useState<StudioTab>("overview");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const displayName = session?.name ?? "User";
   const handle = session?.email
@@ -93,16 +118,57 @@ const UserLinksGenerated = () => {
     .slice(0, 2)
     .toUpperCase();
 
+  async function loadHistory(opts?: { quiet?: boolean }) {
+    if (!session) {
+      setMyLinks([]);
+      setSelectedId(null);
+      setCheckedIds(new Set());
+      return;
+    }
+
+    if (!opts?.quiet) {
+      setStatus("loading");
+    } else {
+      setRefreshing(true);
+    }
+    setErrorMessage("");
+
+    try {
+      const rows = await listShortLinksByUser(session.id);
+      setMyLinks(rows);
+      setSelectedId((prev) => {
+        if (prev && rows.some((r) => r.id === prev)) return prev;
+        return rows[0]?.id ?? null;
+      });
+      setCheckedIds((prev) => {
+        const next = new Set<string>();
+        for (const id of prev) {
+          if (rows.some((r) => r.id === id)) next.add(id);
+        }
+        return next;
+      });
+      setStatus("idle");
+    } catch (err) {
+      setStatus("error");
+      setErrorMessage(
+        err instanceof Error ? err.message : "Could not load your links.",
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   useEffect(() => {
     if (!session) {
       setMyLinks([]);
       setSelectedId(null);
+      setCheckedIds(new Set());
       return;
     }
 
     let cancelled = false;
 
-    async function loadHistory() {
+    async function initialLoad() {
       setStatus("loading");
       setErrorMessage("");
       try {
@@ -120,7 +186,7 @@ const UserLinksGenerated = () => {
       }
     }
 
-    void loadHistory();
+    void initialLoad();
     return () => {
       cancelled = true;
     };
@@ -131,6 +197,12 @@ const UserLinksGenerated = () => {
     const timer = window.setTimeout(() => setCopiedCode(null), 2000);
     return () => window.clearTimeout(timer);
   }, [copiedCode]);
+
+  useEffect(() => {
+    if (!infoMessage) return;
+    const timer = window.setTimeout(() => setInfoMessage(""), 2500);
+    return () => window.clearTimeout(timer);
+  }, [infoMessage]);
 
   const filteredLinks = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -182,11 +254,33 @@ const UserLinksGenerated = () => {
     [myLinks],
   );
 
+  const favoriteCount = useMemo(
+    () => myLinks.filter((row) => row.is_favorite).length,
+    [myLinks],
+  );
+
+  const expiringSoonCount = useMemo(
+    () =>
+      myLinks.filter(
+        (row) =>
+          row.is_active &&
+          !isLinkExpired(row.expires_at) &&
+          isExpiringSoon(row.expires_at),
+      ).length,
+    [myLinks],
+  );
+
+  const allFilteredChecked =
+    filteredLinks.length > 0 &&
+    filteredLinks.every((row) => checkedIds.has(row.id));
+
   function upsertLink(row: ShortLinkRow) {
-    setMyLinks((prev) => {
-      const next = prev.map((item) => (item.id === row.id ? row : item));
-      return next;
-    });
+    setMyLinks((prev) => prev.map((item) => (item.id === row.id ? row : item)));
+  }
+
+  function prependLink(row: ShortLinkRow) {
+    setMyLinks((prev) => [row, ...prev]);
+    setSelectedId(row.id);
   }
 
   function removeLink(id: string) {
@@ -198,6 +292,26 @@ const UserLinksGenerated = () => {
       });
       return next;
     });
+    setCheckedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setStudioTab("overview");
+  }
+
+  function removeLinks(ids: string[]) {
+    const idSet = new Set(ids);
+    setMyLinks((prev) => {
+      const next = prev.filter((item) => !idSet.has(item.id));
+      setSelectedId((current) => {
+        if (!current || !idSet.has(current)) return current;
+        return next[0]?.id ?? null;
+      });
+      return next;
+    });
+    setCheckedIds(new Set());
     setStudioTab("overview");
   }
 
@@ -206,21 +320,164 @@ const UserLinksGenerated = () => {
       await navigator.clipboard.writeText(shortUrl);
       setCopiedCode(code);
       setErrorMessage("");
+      setInfoMessage("Short link copied.");
     } catch {
       setErrorMessage("Copy failed. Select the link and copy manually.");
     }
   }
 
   async function toggleFavorite(row: ShortLinkRow) {
+    setRowBusyId(row.id);
     try {
       const updated = await updateShortLink(row.id, {
         is_favorite: !row.is_favorite,
       });
       upsertLink(updated);
+      setErrorMessage("");
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : "Could not update favorite.",
       );
+    } finally {
+      setRowBusyId(null);
+    }
+  }
+
+  async function togglePause(row: ShortLinkRow) {
+    setRowBusyId(row.id);
+    try {
+      const updated = await updateShortLink(row.id, {
+        is_active: !row.is_active,
+      });
+      upsertLink(updated);
+      setErrorMessage("");
+      setInfoMessage(updated.is_active ? "Link resumed." : "Link paused.");
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Could not update link status.",
+      );
+    } finally {
+      setRowBusyId(null);
+    }
+  }
+
+  async function handleShare(shortUrl: string, title: string | null) {
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({
+          title: title || "Pinalink short link",
+          url: shortUrl,
+        });
+        setInfoMessage("Shared.");
+        return;
+      }
+      await navigator.clipboard.writeText(shortUrl);
+      setInfoMessage("Share unavailable — link copied instead.");
+    } catch (err) {
+      // User cancel is not an error
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(shortUrl);
+        setInfoMessage("Share cancelled — link copied.");
+      } catch {
+        setErrorMessage("Could not share or copy link.");
+      }
+    }
+  }
+
+  async function handleDuplicate(row: ShortLinkRow) {
+    if (!session) {
+      setErrorMessage("Sign in to duplicate links.");
+      return;
+    }
+    setRowBusyId(row.id);
+    try {
+      const copy = await duplicateShortLink(row, session.id);
+      prependLink(copy);
+      setErrorMessage("");
+      setInfoMessage("Duplicate created.");
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Could not duplicate link.",
+      );
+    } finally {
+      setRowBusyId(null);
+    }
+  }
+
+  function handleExportCsv() {
+    if (filteredLinks.length === 0) {
+      setErrorMessage("Nothing to export for this filter.");
+      return;
+    }
+    exportShortLinksCsv(filteredLinks);
+    setInfoMessage(`Exported ${filteredLinks.length} link(s).`);
+    setErrorMessage("");
+  }
+
+  function toggleChecked(id: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllFiltered() {
+    setCheckedIds(new Set(filteredLinks.map((row) => row.id)));
+  }
+
+  function clearChecked() {
+    setCheckedIds(new Set());
+  }
+
+  async function runBulk(
+    action: "pause" | "resume" | "favorite" | "unfavorite" | "delete",
+  ) {
+    const ids = [...checkedIds];
+    if (ids.length === 0) return;
+
+    if (action === "delete") {
+      const ok = window.confirm(
+        `Delete ${ids.length} short link(s)? This cannot be undone.`,
+      );
+      if (!ok) return;
+    }
+
+    setBulkBusy(true);
+    setErrorMessage("");
+    try {
+      if (action === "delete") {
+        await Promise.all(ids.map((id) => deleteShortLink(id)));
+        removeLinks(ids);
+        setInfoMessage(`Deleted ${ids.length} link(s).`);
+      } else {
+        const patch =
+          action === "pause"
+            ? { is_active: false }
+            : action === "resume"
+              ? { is_active: true }
+              : action === "favorite"
+                ? { is_favorite: true }
+                : { is_favorite: false };
+
+        const updated = await Promise.all(
+          ids.map((id) => updateShortLink(id, patch)),
+        );
+        setMyLinks((prev) => {
+          const map = new Map(updated.map((row) => [row.id, row]));
+          return prev.map((row) => map.get(row.id) ?? row);
+        });
+        setInfoMessage(`Updated ${updated.length} link(s).`);
+        clearChecked();
+      }
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Bulk action failed.",
+      );
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -251,6 +508,8 @@ const UserLinksGenerated = () => {
       {label}
     </button>
   );
+
+  const actionsDisabled = bulkBusy || refreshing || status === "loading";
 
   return (
     <div className="mx-auto max-w-6xl space-y-roomy">
@@ -322,11 +581,34 @@ const UserLinksGenerated = () => {
               My Links
             </h1>
             <p className="mt-snug text-body-md text-[var(--uw-muted)] max-w-2xl">
-              Customize vanity codes, pause links, and design branded QR codes.
+              Customize vanity codes, pause links, bulk manage, export, and design
+              branded QR codes.
             </p>
           </div>
           <div className="flex flex-wrap gap-tight">
-            <span className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-muted)]">
+            <button
+              type="button"
+              onClick={() => void loadHistory({ quiet: true })}
+              disabled={actionsDisabled || !session}
+              className="inline-flex min-h-11 items-center gap-tight rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-white/5"
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin" : undefined}
+                aria-hidden
+              />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={actionsDisabled || filteredLinks.length === 0}
+              className="inline-flex min-h-11 items-center gap-tight rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-white/5"
+            >
+              <Download size={16} aria-hidden />
+              Export CSV
+            </button>
+            <span className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-muted)] border border-white/5">
               Sort:{" "}
               <select
                 value={sortMode}
@@ -384,7 +666,7 @@ const UserLinksGenerated = () => {
       ) : null}
 
       {!focusMode && myLinks.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-gutter uw-rise-delay-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-gutter uw-rise-delay-2">
           {[
             {
               label: "Short links",
@@ -403,6 +685,18 @@ const UserLinksGenerated = () => {
               value: totalClicks,
               icon: MousePointerClick,
               accent: "text-white",
+            },
+            {
+              label: "Favorites",
+              value: favoriteCount,
+              icon: Star,
+              accent: "text-[var(--uw-lime)]",
+            },
+            {
+              label: "Expiring soon",
+              value: expiringSoonCount,
+              icon: Clock,
+              accent: "text-[var(--uw-orange)]",
             },
           ].map((stat) => {
             const Icon = stat.icon;
@@ -447,6 +741,12 @@ const UserLinksGenerated = () => {
       {status === "error" || errorMessage ? (
         <p className="text-[#ff6b6b] text-body-md" role="alert">
           {errorMessage}
+        </p>
+      ) : null}
+
+      {infoMessage ? (
+        <p className="text-[var(--uw-lime)] text-body-md" role="status">
+          {infoMessage}
         </p>
       ) : null}
 
@@ -571,7 +871,78 @@ const UserLinksGenerated = () => {
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={allFilteredChecked ? clearChecked : selectAllFiltered}
+                disabled={filteredLinks.length === 0 || actionsDisabled}
+                className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy font-bold text-label-sm text-[var(--uw-muted)] hover:text-[var(--uw-text)] transition-colors disabled:opacity-60 border border-white/5"
+              >
+                {allFilteredChecked ? "Clear selection" : "Select all"}
+              </button>
             </div>
+
+            {checkedIds.size > 0 ? (
+              <div className="sticky top-2 z-10 flex flex-col gap-snug rounded-[1.5rem] border border-[var(--uw-lime)]/30 bg-[var(--uw-card)]/95 p-snug backdrop-blur sm:flex-row sm:flex-wrap sm:items-center">
+                <p className="px-snug font-bold text-label-sm text-[var(--uw-text)]">
+                  {checkedIds.size} selected
+                </p>
+                <div className="flex flex-wrap gap-tight">
+                  <button
+                    type="button"
+                    disabled={actionsDisabled}
+                    onClick={() => void runBulk("pause")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-label-sm text-[var(--uw-text)] hover:bg-white/10 disabled:opacity-60"
+                  >
+                    <PauseCircle size={14} aria-hidden />
+                    Pause
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionsDisabled}
+                    onClick={() => void runBulk("resume")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-label-sm text-[var(--uw-text)] hover:bg-white/10 disabled:opacity-60"
+                  >
+                    <PlayCircle size={14} aria-hidden />
+                    Resume
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionsDisabled}
+                    onClick={() => void runBulk("favorite")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-label-sm text-[var(--uw-text)] hover:bg-white/10 disabled:opacity-60"
+                  >
+                    <Heart size={14} aria-hidden />
+                    Favorite
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionsDisabled}
+                    onClick={() => void runBulk("unfavorite")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-label-sm text-[var(--uw-text)] hover:bg-white/10 disabled:opacity-60"
+                  >
+                    <Star size={14} aria-hidden />
+                    Unfavorite
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionsDisabled}
+                    onClick={() => void runBulk("delete")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-[#ff6b6b]/15 px-snug font-bold text-label-sm text-[#ff6b6b] hover:bg-[#ff6b6b]/25 disabled:opacity-60"
+                  >
+                    <Trash2 size={14} aria-hidden />
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionsDisabled}
+                    onClick={clearChecked}
+                    className="inline-flex min-h-11 items-center rounded-full px-snug font-bold text-label-sm text-[var(--uw-muted)] hover:text-[var(--uw-text)]"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {filteredLinks.length === 0 ? (
               <p className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy text-body-md text-[var(--uw-muted)] border border-white/5">
@@ -588,6 +959,8 @@ const UserLinksGenerated = () => {
                   const expired = isLinkExpired(row.expires_at);
                   const qrPreview = parseQrStyle(row.qr_style);
                   const tone = barTone(row, index);
+                  const isChecked = checkedIds.has(row.id);
+                  const rowBusy = rowBusyId === row.id || bulkBusy;
 
                   return (
                     <li key={row.id} className="uw-pop">
@@ -599,85 +972,105 @@ const UserLinksGenerated = () => {
                             : "border-white/5 hover:border-white/15",
                         ].join(" ")}
                       >
-                        <button
-                          type="button"
-                          onClick={() => selectLink(row.id, "overview")}
-                          className="w-full min-w-0 text-left"
-                          aria-pressed={isSelected}
-                        >
-                          <div className="flex items-center gap-snug">
-                            <span className="w-10 shrink-0 font-label-sm text-label-sm text-[var(--uw-muted)]">
-                              {new Date(row.created_at).toLocaleDateString(
-                                undefined,
-                                { day: "2-digit", month: "2-digit" },
-                              )}
-                            </span>
-                            <div
-                              className={`flex min-h-12 flex-1 items-center justify-between gap-snug rounded-full px-cozy ${tone} transition-transform hover:scale-[1.01]`}
-                            >
-                              <span className="inline-flex items-center gap-tight min-w-0">
-                                <span
-                                  className="size-8 shrink-0 rounded-full border border-black/10"
-                                  style={{
-                                    background: `linear-gradient(135deg, ${qrPreview.fgColor} 50%, ${qrPreview.bgColor} 50%)`,
-                                  }}
-                                  title="Saved QR colors"
-                                  aria-hidden
-                                />
-                                <span className="min-w-0">
-                                  <span className="block font-bold text-label-sm truncate">
-                                    {row.title || host}
-                                  </span>
-                                  <span className="block text-[11px] opacity-70 truncate">
-                                    {host}
-                                  </span>
-                                </span>
-                              </span>
-                              <span className="inline-flex items-center gap-1 shrink-0 font-bold text-label-sm">
-                                <MousePointerClick size={14} aria-hidden />
-                                {row.click_count}
-                              </span>
-                            </div>
-                          </div>
+                        <div className="flex items-start gap-snug">
+                          <label className="mt-2 inline-flex min-h-11 min-w-11 items-center justify-center shrink-0 cursor-pointer">
+                            <span className="sr-only">Select {row.code}</span>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={actionsDisabled}
+                              onChange={() => toggleChecked(row.id)}
+                              className="size-4 rounded border-white/20 bg-[var(--uw-elevated)] accent-[var(--uw-lime)]"
+                            />
+                          </label>
 
-                          <p className="mt-snug pl-[3.25rem] text-[var(--uw-muted)] font-label-sm text-label-sm break-all line-clamp-1">
-                            {row.original_url}
-                          </p>
-                          <div className="mt-tight pl-[3.25rem] flex flex-wrap items-center gap-tight">
-                            {row.is_favorite ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--uw-lime)]/15 px-2.5 py-1 text-[var(--uw-lime)] font-label-sm text-label-sm font-bold">
-                                <Star size={12} fill="currentColor" aria-hidden />
-                                Fav
-                              </span>
-                            ) : null}
-                            {!row.is_active ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#ff6b6b]/15 px-2.5 py-1 text-[#ff6b6b] font-label-sm text-label-sm font-bold">
-                                <PauseCircle size={12} aria-hidden />
-                                Paused
-                              </span>
-                            ) : null}
-                            {expired ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[var(--uw-muted)] font-label-sm text-label-sm font-bold">
-                                <Clock size={12} aria-hidden />
-                                Expired
-                              </span>
-                            ) : null}
-                            {live ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--uw-lime)]/15 px-2.5 py-1 text-[var(--uw-lime)] font-label-sm text-label-sm font-bold">
-                                Live
-                              </span>
-                            ) : null}
-                            <span className="text-[var(--uw-muted)] font-label-sm text-label-sm">
-                              {formatRelativeDate(row.created_at)}
-                            </span>
-                          </div>
-                        </button>
-
-                        <div className="mt-snug pl-[3.25rem] flex flex-wrap gap-tight">
                           <button
                             type="button"
+                            onClick={() => selectLink(row.id, "overview")}
+                            className="min-w-0 flex-1 text-left"
+                            aria-pressed={isSelected}
+                          >
+                            <div className="flex items-center gap-snug">
+                              <span className="w-10 shrink-0 font-label-sm text-label-sm text-[var(--uw-muted)]">
+                                {new Date(row.created_at).toLocaleDateString(
+                                  undefined,
+                                  { day: "2-digit", month: "2-digit" },
+                                )}
+                              </span>
+                              <div
+                                className={`flex min-h-12 flex-1 items-center justify-between gap-snug rounded-full px-cozy ${tone} transition-transform hover:scale-[1.01]`}
+                              >
+                                <span className="inline-flex items-center gap-tight min-w-0">
+                                  <span
+                                    className="size-8 shrink-0 rounded-full border border-black/10"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${qrPreview.fgColor} 50%, ${qrPreview.bgColor} 50%)`,
+                                    }}
+                                    title="Saved QR colors"
+                                    aria-hidden
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="block font-bold text-label-sm truncate">
+                                      {row.title || host}
+                                    </span>
+                                    <span className="block text-[11px] opacity-70 truncate">
+                                      {host}
+                                    </span>
+                                  </span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 shrink-0 font-bold text-label-sm">
+                                  <MousePointerClick size={14} aria-hidden />
+                                  {row.click_count}
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="mt-snug text-[var(--uw-muted)] font-label-sm text-label-sm break-all line-clamp-1">
+                              {row.original_url}
+                            </p>
+                            <div className="mt-tight flex flex-wrap items-center gap-tight">
+                              {row.is_favorite ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--uw-lime)]/15 px-2.5 py-1 text-[var(--uw-lime)] font-label-sm text-label-sm font-bold">
+                                  <Star size={12} fill="currentColor" aria-hidden />
+                                  Fav
+                                </span>
+                              ) : null}
+                              {!row.is_active ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#ff6b6b]/15 px-2.5 py-1 text-[#ff6b6b] font-label-sm text-label-sm font-bold">
+                                  <PauseCircle size={12} aria-hidden />
+                                  Paused
+                                </span>
+                              ) : null}
+                              {expired ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[var(--uw-muted)] font-label-sm text-label-sm font-bold">
+                                  <Clock size={12} aria-hidden />
+                                  Expired
+                                </span>
+                              ) : null}
+                              {isExpiringSoon(row.expires_at) && !expired ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--uw-orange)]/15 px-2.5 py-1 text-[var(--uw-orange)] font-label-sm text-label-sm font-bold">
+                                  <Clock size={12} aria-hidden />
+                                  Soon
+                                </span>
+                              ) : null}
+                              {live ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--uw-lime)]/15 px-2.5 py-1 text-[var(--uw-lime)] font-label-sm text-label-sm font-bold">
+                                  Live
+                                </span>
+                              ) : null}
+                              <span className="text-[var(--uw-muted)] font-label-sm text-label-sm">
+                                {formatRelativeDate(row.created_at)}
+                              </span>
+                            </div>
+                          </button>
+                        </div>
+
+                        <div className="mt-snug flex flex-wrap gap-tight pl-0 sm:pl-12">
+                          <button
+                            type="button"
+                            disabled={rowBusy}
                             onClick={() => void handleCopy(shortUrl, row.code)}
-                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug text-body-md font-bold text-[var(--uw-lime)] hover:bg-white/10 transition-colors"
+                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug text-body-md font-bold text-[var(--uw-lime)] hover:bg-white/10 transition-colors disabled:opacity-60"
                           >
                             {isCopied ? (
                               <Check size={16} aria-hidden />
@@ -697,8 +1090,41 @@ const UserLinksGenerated = () => {
                           </a>
                           <button
                             type="button"
+                            disabled={rowBusy}
+                            onClick={() => void togglePause(row)}
+                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60"
+                            aria-label={row.is_active ? "Pause link" : "Resume link"}
+                          >
+                            {row.is_active ? (
+                              <PauseCircle size={16} aria-hidden />
+                            ) : (
+                              <PlayCircle size={16} aria-hidden />
+                            )}
+                            {row.is_active ? "Pause" : "Resume"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={rowBusy}
+                            onClick={() => void handleShare(shortUrl, row.title)}
+                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60"
+                          >
+                            <Share2 size={16} aria-hidden />
+                            Share
+                          </button>
+                          <button
+                            type="button"
+                            disabled={rowBusy}
+                            onClick={() => void handleDuplicate(row)}
+                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60"
+                          >
+                            <CopyPlus size={16} aria-hidden />
+                            Duplicate
+                          </button>
+                          <button
+                            type="button"
+                            disabled={rowBusy}
                             onClick={() => void toggleFavorite(row)}
-                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+                            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-snug font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60"
                             aria-label={
                               row.is_favorite
                                 ? "Remove favorite"
@@ -806,6 +1232,10 @@ const UserLinksGenerated = () => {
                     </dt>
                     <dd className="text-[var(--uw-text)]">
                       {new Date(selected.expires_at).toLocaleString()}
+                      {isExpiringSoon(selected.expires_at) &&
+                      !isLinkExpired(selected.expires_at)
+                        ? " · soon"
+                        : ""}
                     </dd>
                   </div>
                 ) : null}
@@ -828,6 +1258,38 @@ const UserLinksGenerated = () => {
               <div className="grid grid-cols-2 gap-tight">
                 <button
                   type="button"
+                  disabled={rowBusyId === selected.id || bulkBusy}
+                  onClick={() => void togglePause(selected)}
+                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60"
+                >
+                  {selected.is_active ? (
+                    <PauseCircle size={16} aria-hidden />
+                  ) : (
+                    <PlayCircle size={16} aria-hidden />
+                  )}
+                  {selected.is_active ? "Pause" : "Resume"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleShare(selectedShortUrl, selected.title)
+                  }
+                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+                >
+                  <Share2 size={16} aria-hidden />
+                  Share
+                </button>
+                <button
+                  type="button"
+                  disabled={rowBusyId === selected.id || bulkBusy || !session}
+                  onClick={() => void handleDuplicate(selected)}
+                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60"
+                >
+                  <CopyPlus size={16} aria-hidden />
+                  Duplicate
+                </button>
+                <button
+                  type="button"
                   onClick={() => setStudioTab("edit")}
                   className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
                 >
@@ -837,10 +1299,10 @@ const UserLinksGenerated = () => {
                 <button
                   type="button"
                   onClick={() => setStudioTab("qr")}
-                  className="inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+                  className="col-span-2 inline-flex min-h-11 items-center justify-center gap-tight rounded-full bg-white/5 font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
                 >
                   <QrCode size={16} aria-hidden />
-                  QR
+                  QR studio
                 </button>
               </div>
             </aside>

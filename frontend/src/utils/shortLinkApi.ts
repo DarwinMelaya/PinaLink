@@ -1,5 +1,5 @@
 import supabase from "./supabaseClient";
-import { generateShortCode } from "./shortLink";
+import { buildShortUrl, generateShortCode } from "./shortLink";
 import type { QrStyle } from "./qrStyle";
 
 export type ShortLinkRow = {
@@ -146,4 +146,75 @@ export async function incrementClickCount(id: string, current: number): Promise<
   if (error) {
     console.error("Failed to increment click count:", error.message);
   }
+}
+
+/** Clone destination + metadata; new code and zero clicks. */
+export async function duplicateShortLink(
+  source: ShortLinkRow,
+  userId: string,
+): Promise<ShortLinkRow> {
+  const created = await createShortLink(source.original_url, userId);
+
+  const title =
+    source.title && source.title.trim()
+      ? `${source.title.trim()} (copy)`
+      : null;
+
+  return updateShortLink(created.id, {
+    title,
+    notes: source.notes,
+    is_favorite: false,
+    is_active: true,
+    expires_at: source.expires_at,
+    qr_style: (source.qr_style as QrStyle | null) ?? null,
+  });
+}
+
+function csvEscape(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/** Download filtered short links as CSV. */
+export function exportShortLinksCsv(rows: ShortLinkRow[]): void {
+  const header = [
+    "code",
+    "short_url",
+    "title",
+    "destination",
+    "clicks",
+    "favorite",
+    "active",
+    "expires_at",
+    "created_at",
+  ];
+
+  const lines = [
+    header.join(","),
+    ...rows.map((row) =>
+      [
+        csvEscape(row.code),
+        csvEscape(buildShortUrl(row.code)),
+        csvEscape(row.title ?? ""),
+        csvEscape(row.original_url),
+        String(row.click_count ?? 0),
+        row.is_favorite ? "true" : "false",
+        row.is_active ? "true" : "false",
+        csvEscape(row.expires_at ?? ""),
+        csvEscape(row.created_at),
+      ].join(","),
+    ),
+  ];
+
+  const blob = new Blob([lines.join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pinalink-links-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
