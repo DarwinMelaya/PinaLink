@@ -165,27 +165,12 @@ async function upsertProfileFromAuthUser(
   return profile;
 }
 
-/** Register with Supabase Auth email/password (no Google Cloud). */
-export async function registerProfile(
+async function registerViaCreateUserApi(
   input: RegisterInput,
 ): Promise<PublicProfile> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
 
-  if (!name || !email || !input.password) {
-    throw new Error("Name, email, and password are required.");
-  }
-  if (!email.includes("@")) {
-    throw new Error("Enter a valid email.");
-  }
-  if (input.password.length < 8) {
-    throw new Error("Password must be at least 8 characters.");
-  }
-  if (input.role !== "USER" && input.role !== "ADMIN") {
-    throw new Error("Invalid role.");
-  }
-
-  // Create via DB middleware — avoids /auth/v1/signup email rate limits
   const { createAuthUserWithoutEmail } = await import("./createAuthUser");
   const created = await createAuthUserWithoutEmail({
     email,
@@ -207,11 +192,91 @@ export async function registerProfile(
     );
   }
 
-  const profile = await upsertProfileFromAuthUser(signedIn.user, {
+  return upsertProfileFromAuthUser(signedIn.user, {
     name: created.name,
     role: created.role,
   });
-  return profile;
+}
+
+/**
+ * Production fallback when `/api/auth/create-user` is missing.
+ * Uses public Supabase Auth signup (works on Vercel without service role).
+ */
+async function registerViaSupabaseSignUp(
+  input: RegisterInput,
+): Promise<PublicProfile> {
+  const email = input.email.trim().toLowerCase();
+  const name = input.name.trim();
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: input.password,
+    options: {
+      data: { name, role: input.role },
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || "Registration failed.");
+  }
+
+  if (data.session?.user) {
+    return upsertProfileFromAuthUser(data.session.user, {
+      name,
+      role: input.role,
+    });
+  }
+
+  // Confirm-email may be on: try immediate sign-in anyway.
+  const { data: signedIn, error: signInError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password: input.password,
+    });
+
+  if (signInError || !signedIn.user) {
+    throw new Error(
+      signInError?.message ||
+        "Account created. Confirm your email, then sign in.",
+    );
+  }
+
+  return upsertProfileFromAuthUser(signedIn.user, {
+    name,
+    role: input.role,
+  });
+}
+
+/** Register with Supabase Auth email/password (no Google Cloud). */
+export async function registerProfile(
+  input: RegisterInput,
+): Promise<PublicProfile> {
+  const email = input.email.trim().toLowerCase();
+  const name = input.name.trim();
+
+  if (!name || !email || !input.password) {
+    throw new Error("Name, email, and password are required.");
+  }
+  if (!email.includes("@")) {
+    throw new Error("Enter a valid email.");
+  }
+  if (input.password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+  if (input.role !== "USER" && input.role !== "ADMIN") {
+    throw new Error("Invalid role.");
+  }
+
+  try {
+    // Local Vite middleware or Vercel serverless create-user
+    return await registerViaCreateUserApi(input);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "CREATE_USER_API_UNAVAILABLE") {
+      return registerViaSupabaseSignUp(input);
+    }
+    throw err;
+  }
 }
 
 /** Sign in with Supabase Auth email/password. */

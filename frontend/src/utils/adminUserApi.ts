@@ -78,20 +78,30 @@ export async function createAdminUser(
   }
 
   const { createAuthUserWithoutEmail } = await import("./createAuthUser");
-  const created = await createAuthUserWithoutEmail({
-    email,
-    password,
-    name,
-    role: input.role,
-  });
+  try {
+    const created = await createAuthUserWithoutEmail({
+      email,
+      password,
+      name,
+      role: input.role,
+    });
 
-  return {
-    id: created.id,
-    email: created.email,
-    name: created.name,
-    role: parseRole(created.role),
-    created_at: created.created_at,
-  };
+    return {
+      id: created.id,
+      email: created.email,
+      name: created.name,
+      role: parseRole(created.role),
+      created_at: created.created_at,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "CREATE_USER_API_UNAVAILABLE") {
+      throw new Error(
+        "Create-user API unavailable. On Vercel set SUPABASE_SERVICE_ROLE_KEY, or run Vite locally.",
+      );
+    }
+    throw err;
+  }
 }
 
 export async function updateAdminUser(

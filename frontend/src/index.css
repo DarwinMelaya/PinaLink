@@ -549,12 +549,15 @@
 
   /* Pointer-reactive 3D cards (dashboard) */
   .tilt-scene {
+    position: relative;
     perspective: 900px;
     perspective-origin: 50% 50%;
   }
 
   .tilt-card {
     position: relative;
+    /* Above .tilt-glow, so the bloom never washes over the card content. */
+    z-index: 1;
     height: 100%;
     transform-style: preserve-3d;
     will-change: transform;
@@ -591,15 +594,6 @@
     border-radius: 28px;
     pointer-events: none;
     filter: blur(22px);
-  }
-
-  /* Glow sits behind the card, never over its content. */
-  .tilt-card {
-    z-index: 1;
-  }
-
-  .tilt-scene {
-    position: relative;
   }
 
   /* Soft cyan halo behind an element, pulsing unless motion is reduced. */
@@ -664,16 +658,12 @@
       rgba(0, 43, 91, 0.38) 55%,
       transparent 80%
     );
-    transition:
-      opacity 0.35s ease,
-      transform 0.35s ease;
   }
 
-  .phone-scene.is-spinning .phone-aura {
-    opacity: 1;
-    transform: scale(1.09);
-  }
-
+  /*
+   * The aura's opacity/scale live in PhoneMockup, not here: Motion writes them
+   * as inline styles, which would beat any rule in this file.
+   */
   .phone-scene.is-spinning .phone-body {
     box-shadow:
       0 45px 80px -25px rgba(0, 0, 0, 0.9),
@@ -699,22 +689,15 @@
   }
 
   .phone-scene:focus-visible {
-    outline: none;
-  }
-
-  .phone-scene:focus-visible .phone-aura {
-    opacity: 1;
+    outline: 2px solid var(--uw-cyan);
+    outline-offset: 12px;
+    border-radius: 2.5rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .uw-glow-ring::after {
       animation: none;
       opacity: 0.85;
-    }
-
-    .phone-glow-ring {
-      animation: none;
-      opacity: 0.55;
     }
   }
 }

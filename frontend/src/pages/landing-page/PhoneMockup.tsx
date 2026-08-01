@@ -217,13 +217,13 @@ const PhoneMockup = () => {
         aria-hidden
         animate={
           reduce
-            ? { opacity: 0.75 }
+            ? { opacity: dragging ? 1 : 0.75, scale: dragging ? 1.06 : 1 }
             : dragging
               ? { opacity: 1, scale: 1.1 }
               : { opacity: [0.55, 0.95, 0.55], scale: [1, 1.08, 1] }
         }
         transition={
-          dragging
+          dragging || reduce
             ? { duration: 0.25 }
             : { duration: 4.2, repeat: Infinity, ease: "easeInOut" }
         }
