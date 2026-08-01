@@ -147,7 +147,7 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
       <Link
         to="/user/dashboard"
         onClick={onNavigate}
-        className="mx-auto flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black ring-1 ring-[var(--uw-cyan)]/40 hover:ring-[var(--uw-cyan)] transition-all uw-pop"
+        className="uw-glow-ring uw-glow-hover mx-auto flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black ring-1 ring-[var(--uw-cyan)]/40 hover:ring-[var(--uw-cyan)] transition-all uw-pop"
         aria-label="Pinalink home"
       >
         <img
@@ -167,7 +167,7 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
         ].join(" ")}
       >
         <div
-          className="flex size-10 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] text-label-sm font-bold ring-1 ring-white/10"
+          className="uw-text-glow flex size-10 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] text-label-sm font-bold ring-1 ring-[var(--uw-cyan)]/25"
           aria-hidden
         >
           {initials || "U"}
@@ -200,15 +200,15 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
                       "relative flex min-h-12 w-full items-center gap-snug rounded-2xl px-0 transition-all",
                       rowAlign,
                       isActive
-                        ? "uw-gradient text-[var(--uw-on-accent)] shadow-[0_0_24px_rgba(0,212,197,0.35)]"
-                        : "bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)] hover:bg-[var(--uw-card-hover)]",
+                        ? "uw-glow-ring uw-gradient text-[var(--uw-on-accent)] shadow-[0_0_26px_rgba(0,212,197,0.45)]"
+                        : "uw-glow-hover bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)] hover:bg-[var(--uw-card-hover)]",
                     ].join(" ")
                   }
                 >
                   <span className="relative inline-flex size-12 shrink-0 items-center justify-center">
                     <Icon size={20} aria-hidden />
                     {badge ? (
-                      <span className="absolute -top-0.5 -right-0.5 flex min-w-5 h-5 items-center justify-center rounded-full bg-[#ff3b30] px-1 text-[10px] font-bold text-white">
+                      <span className="uw-glow-badge absolute -top-0.5 -right-0.5 flex min-w-5 h-5 items-center justify-center rounded-full bg-[#ff3b30] px-1 text-[10px] font-bold text-white">
                         {badge}
                       </span>
                     ) : null}
@@ -237,7 +237,7 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
               }, 50);
             }}
             className={[
-              "flex min-h-12 w-full items-center gap-snug rounded-full uw-gradient font-bold hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(0,212,197,0.3)]",
+              "uw-glow-ring uw-glow-hover flex min-h-12 w-full items-center gap-snug rounded-full uw-gradient font-bold hover:brightness-110 active:scale-95 transition-all shadow-[0_0_22px_rgba(0,212,197,0.4)]",
               rowAlign,
             ].join(" ")}
           >
@@ -258,7 +258,7 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
           </p>
 
           <div
-            className={`mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] font-bold ring-1 ring-white/10 ${hideWhenExpanded}`}
+            className={`uw-text-glow mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] font-bold ring-1 ring-[var(--uw-cyan)]/25 ${hideWhenExpanded}`}
             title={displayName}
             aria-hidden
           >
@@ -274,7 +274,7 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
               void handleLogout();
             }}
             className={[
-              "flex min-h-12 w-full items-center gap-snug rounded-2xl bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[#ff6b6b] hover:bg-[var(--uw-card-hover)] transition-colors disabled:opacity-60",
+              "uw-glow-hover uw-glow-danger flex min-h-12 w-full items-center gap-snug rounded-2xl bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[#ff6b6b] hover:bg-[var(--uw-card-hover)] transition-colors disabled:opacity-60",
               rowAlign,
             ].join(" ")}
           >

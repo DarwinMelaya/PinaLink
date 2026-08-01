@@ -38,6 +38,7 @@ import {
   isLinkLive,
 } from "../../utils/qrStyle";
 import { listCertificatesByUser } from "../../utils/certificateApi";
+import TiltCard from "../../components/ui/TiltCard";
 
 type ShortenStatus = "idle" | "loading" | "success" | "error";
 
@@ -626,9 +627,9 @@ const UserDashboard = () => {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div
+            <TiltCard
               key={stat.label}
-              className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy"
+              className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)]"
             >
               <div className="flex items-center justify-between gap-snug">
                 <p className="font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
@@ -643,62 +644,68 @@ const UserDashboard = () => {
               <p className="mt-snug text-2xl font-bold text-[var(--uw-text)]">
                 {stat.value}
               </p>
-            </div>
+            </TiltCard>
           );
         })}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-snug uw-rise-delay-1">
-        <Link
-          to="/user/links-generated"
-          className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy hover:border-[var(--uw-cyan)]/40 transition-colors min-h-14 flex items-center gap-snug"
-        >
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-cyan)]">
-            <QrCode size={18} aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-bold text-body-md text-[var(--uw-text)]">
-              QR studio
+        <TiltCard className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] hover:border-[var(--uw-cyan)]/40 transition-colors shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)]">
+          <Link
+            to="/user/links-generated"
+            className="p-cozy min-h-14 h-full flex items-center gap-snug"
+          >
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-cyan)]">
+              <QrCode size={18} aria-hidden />
             </span>
-            <span className="block text-label-sm text-[var(--uw-muted)]">
-              Shapes, logo, PNG/SVG/PDF
+            <span className="min-w-0">
+              <span className="block font-bold text-body-md text-[var(--uw-text)]">
+                QR studio
+              </span>
+              <span className="block text-label-sm text-[var(--uw-muted)]">
+                Shapes, logo, PNG/SVG/PDF
+              </span>
             </span>
-          </span>
-        </Link>
-        <Link
-          to="/user/verified-certificate"
-          className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy hover:border-[var(--uw-cyan)]/40 transition-colors min-h-14 flex items-center gap-snug"
-        >
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-lime)]">
-            <BadgeCheck size={18} aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-bold text-body-md text-[var(--uw-text)]">
-              Certificates
+          </Link>
+        </TiltCard>
+        <TiltCard className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] hover:border-[var(--uw-cyan)]/40 transition-colors shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)]">
+          <Link
+            to="/user/verified-certificate"
+            className="p-cozy min-h-14 h-full flex items-center gap-snug"
+          >
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-lime)]">
+              <BadgeCheck size={18} aria-hidden />
             </span>
-            <span className="block text-label-sm text-[var(--uw-muted)]">
-              Issue, bulk Excel, branding
+            <span className="min-w-0">
+              <span className="block font-bold text-body-md text-[var(--uw-text)]">
+                Certificates
+              </span>
+              <span className="block text-label-sm text-[var(--uw-muted)]">
+                Issue, bulk Excel, branding
+              </span>
             </span>
-          </span>
-        </Link>
-        <Link
-          to="/cert"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy hover:border-[var(--uw-cyan)]/40 transition-colors min-h-14 flex items-center gap-snug"
-        >
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-orange)]">
-            <ShieldCheck size={18} aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-bold text-body-md text-[var(--uw-text)]">
-              Verify portal
+          </Link>
+        </TiltCard>
+        <TiltCard className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] hover:border-[var(--uw-cyan)]/40 transition-colors shadow-[0_18px_40px_-28px_rgba(0,0,0,0.9)]">
+          <Link
+            to="/cert"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-cozy min-h-14 h-full flex items-center gap-snug"
+          >
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-[var(--uw-orange)]">
+              <ShieldCheck size={18} aria-hidden />
             </span>
-            <span className="block text-label-sm text-[var(--uw-muted)]">
-              Public /cert lookup
+            <span className="min-w-0">
+              <span className="block font-bold text-body-md text-[var(--uw-text)]">
+                Verify portal
+              </span>
+              <span className="block text-label-sm text-[var(--uw-muted)]">
+                Public /cert lookup
+              </span>
             </span>
-          </span>
-        </Link>
+          </Link>
+        </TiltCard>
       </div>
 
       {errorMessage ? (
@@ -878,7 +885,12 @@ const UserDashboard = () => {
                 </div>
               </div>
               <div className="flex-shrink-0">
-                <div className="bg-white p-snug rounded-3xl text-center">
+                <TiltCard
+                  drag
+                  intensity={14}
+                  lift={26}
+                  className="bg-white p-snug rounded-3xl text-center cursor-grab touch-none shadow-[0_30px_60px_-30px_rgba(0,0,0,0.95)]"
+                >
                   <div className="w-32 h-32 mx-auto flex items-center justify-center">
                     <QRCodeSVG
                       id="user-pinalink-qr"
@@ -897,14 +909,17 @@ const UserDashboard = () => {
                     <Download size={16} aria-hidden />
                     SVG QR
                   </button>
-                </div>
+                </TiltCard>
+                <p className="mt-tight text-center text-[10px] uppercase tracking-wide text-[var(--uw-muted)]">
+                  Drag me
+                </p>
               </div>
             </div>
           ) : null}
         </form>
 
         <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-gutter">
-          <div className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy border border-white/5 flex flex-col">
+          <TiltCard className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy border border-white/5 flex flex-col shadow-[0_24px_50px_-32px_rgba(0,0,0,0.95)]">
             <div className="flex items-start justify-between">
               <p className="font-label-sm text-label-sm uppercase tracking-wide text-[var(--uw-muted)]">
                 Clicks
@@ -936,9 +951,9 @@ const UserDashboard = () => {
             <div className="mt-auto pt-cozy">
               <SparkLine points={clickSpark} stroke="var(--uw-lime)" />
             </div>
-          </div>
+          </TiltCard>
 
-          <div className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy border border-white/5">
+          <TiltCard className="rounded-[1.75rem] bg-[var(--uw-card)] p-cozy border border-white/5 shadow-[0_24px_50px_-32px_rgba(0,0,0,0.95)]">
             <div className="flex items-start justify-between mb-cozy">
               <p className="font-label-sm text-label-sm uppercase tracking-wide text-[var(--uw-muted)]">
                 Certificates
@@ -973,7 +988,7 @@ const UserDashboard = () => {
             <p className="text-label-sm text-[var(--uw-muted)]">
               Bulk Excel, QR verify links, org branding, revoke.
             </p>
-          </div>
+          </TiltCard>
         </div>
 
         <div className="lg:col-span-5 rounded-[1.75rem] bg-[var(--uw-card)] p-cozy border border-white/5">

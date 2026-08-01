@@ -240,7 +240,7 @@
 
   .phone-3d {
     /* Frame thickness: drives the depth of every side face and the back plate */
-    --phone-depth: 28px;
+    --phone-depth: 38px;
     position: relative;
     transform-style: preserve-3d;
     will-change: transform;
@@ -248,17 +248,37 @@
 
   .phone-halo {
     position: absolute;
-    inset: auto -6% -6% -6%;
-    height: 10rem;
+    inset: auto -8% -8% -8%;
+    height: 11rem;
     border-radius: 999px;
     pointer-events: none;
     filter: blur(42px);
     background: radial-gradient(
       ellipse at center,
-      rgba(0, 212, 197, 0.55),
-      rgba(0, 43, 91, 0.45) 45%,
+      rgba(0, 212, 197, 0.7),
+      rgba(0, 43, 91, 0.5) 45%,
       transparent 72%
     );
+  }
+
+  .phone-glow-ring {
+    position: absolute;
+    inset: 8% 2%;
+    z-index: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(28px);
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(0, 212, 197, 0.55) 60deg,
+      transparent 140deg,
+      rgba(0, 43, 91, 0.45) 220deg,
+      transparent 300deg,
+      rgba(0, 212, 197, 0.4) 340deg,
+      transparent 360deg
+    );
+    opacity: 0.65;
   }
 
   .phone-shadow {
@@ -292,7 +312,8 @@
     box-shadow:
       0 45px 80px -25px rgba(0, 0, 0, 0.9),
       0 18px 35px -18px rgba(0, 0, 0, 0.8),
-      0 0 55px -18px rgba(0, 212, 197, 0.4),
+      0 0 70px -14px rgba(0, 212, 197, 0.55),
+      0 0 110px -28px rgba(0, 212, 197, 0.35),
       0 0 0 1px rgba(255, 255, 255, 0.09);
   }
 
@@ -393,7 +414,8 @@
     overflow: hidden;
     border-radius: 2.1rem;
     background: #000000;
-    transform: translateZ(1px);
+    transform: translateZ(6px);
+    backface-visibility: hidden;
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.08),
       inset 0 0 24px rgba(0, 0, 0, 0.9);
@@ -441,9 +463,23 @@
     background: linear-gradient(
       100deg,
       transparent,
-      rgba(255, 255, 255, 0.18),
+      rgba(0, 212, 197, 0.22),
+      rgba(255, 255, 255, 0.28),
+      rgba(0, 212, 197, 0.18),
       transparent
     );
+  }
+
+  .phone-edge-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 0 18px rgba(0, 212, 197, 0.22),
+      inset 0 0 2px rgba(0, 212, 197, 0.45);
+    mix-blend-mode: screen;
+    opacity: 0.85;
   }
 
   .phone-rim {
@@ -486,5 +522,199 @@
 
   .phone-reflection .phone-shot {
     transform: scaleY(-1);
+  }
+
+  /* Grab-to-spin affordance on the hero phone */
+  .phone-grab {
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .phone-grab:active {
+    cursor: grabbing;
+  }
+
+  .phone-hint {
+    position: absolute;
+    left: 50%;
+    bottom: -0.25rem;
+    transform: translateX(-50%);
+    pointer-events: none;
+    white-space: nowrap;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 10px;
+    color: var(--uw-muted, rgba(255, 255, 255, 0.6));
+  }
+
+  /* Pointer-reactive 3D cards (dashboard) */
+  .tilt-scene {
+    perspective: 900px;
+    perspective-origin: 50% 50%;
+  }
+
+  .tilt-card {
+    position: relative;
+    height: 100%;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+
+  .tilt-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  /*
+   * Brand glow system.
+   * Every glow is a separate blurred layer rather than a box-shadow on the
+   * element itself, so it can sit behind rounded children of any radius and
+   * animate opacity without repainting the content.
+   */
+  @keyframes uw-glow-breathe {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .tilt-glow {
+    position: absolute;
+    inset: -10px;
+    z-index: 0;
+    border-radius: 28px;
+    pointer-events: none;
+    filter: blur(22px);
+  }
+
+  /* Glow sits behind the card, never over its content. */
+  .tilt-card {
+    z-index: 1;
+  }
+
+  .tilt-scene {
+    position: relative;
+  }
+
+  /* Soft cyan halo behind an element, pulsing unless motion is reduced. */
+  .uw-glow-ring {
+    position: relative;
+  }
+
+  .uw-glow-ring::after {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    filter: blur(11px);
+    opacity: 0.7;
+    background: radial-gradient(
+      70% 130% at 50% 50%,
+      rgba(0, 212, 197, 0.55),
+      rgba(0, 43, 91, 0.3) 58%,
+      transparent 76%
+    );
+    animation: uw-glow-breathe 3.6s ease-in-out infinite;
+  }
+
+  .uw-glow-hover {
+    transition:
+      box-shadow 0.25s ease,
+      filter 0.25s ease;
+  }
+
+  .uw-glow-hover:hover {
+    box-shadow:
+      0 0 22px -2px rgba(0, 212, 197, 0.65),
+      0 0 52px -14px rgba(0, 212, 197, 0.5);
+  }
+
+  .uw-glow-danger:hover {
+    box-shadow: 0 0 20px -4px rgba(255, 107, 107, 0.55);
+  }
+
+  .uw-glow-badge {
+    box-shadow: 0 0 12px rgba(255, 59, 48, 0.75);
+  }
+
+  .uw-text-glow {
+    text-shadow: 0 0 14px rgba(0, 212, 197, 0.55);
+  }
+
+  /* Wide bloom behind the hero phone; brightens while the user spins it. */
+  .phone-aura {
+    position: absolute;
+    inset: -12% -18%;
+    z-index: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(48px);
+    opacity: 0.75;
+    background: radial-gradient(
+      closest-side,
+      rgba(0, 212, 197, 0.55),
+      rgba(0, 43, 91, 0.38) 55%,
+      transparent 80%
+    );
+    transition:
+      opacity 0.35s ease,
+      transform 0.35s ease;
+  }
+
+  .phone-scene.is-spinning .phone-aura {
+    opacity: 1;
+    transform: scale(1.09);
+  }
+
+  .phone-scene.is-spinning .phone-body {
+    box-shadow:
+      0 45px 80px -25px rgba(0, 0, 0, 0.9),
+      0 18px 35px -18px rgba(0, 0, 0, 0.8),
+      0 0 100px -10px rgba(0, 212, 197, 0.85),
+      0 0 140px -20px rgba(0, 212, 197, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+
+  .phone-scene.is-spinning .phone-edge-glow {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 28px rgba(0, 212, 197, 0.4),
+      inset 0 0 4px rgba(0, 212, 197, 0.7);
+  }
+
+  .phone-scene.is-spinning .phone-rim {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 0 0 1px rgba(0, 212, 197, 0.55),
+      inset 0 0 30px rgba(0, 212, 197, 0.4);
+  }
+
+  .phone-scene:focus-visible {
+    outline: none;
+  }
+
+  .phone-scene:focus-visible .phone-aura {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .uw-glow-ring::after {
+      animation: none;
+      opacity: 0.85;
+    }
+
+    .phone-glow-ring {
+      animation: none;
+      opacity: 0.55;
+    }
   }
 }

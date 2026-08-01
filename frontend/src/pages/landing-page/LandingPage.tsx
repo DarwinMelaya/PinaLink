@@ -71,7 +71,7 @@ function WordReveal({ words, className, gradient, reduce }: WordRevealProps) {
       {words.map((word, i) => (
         <span key={`${word}-${i}`} className="inline-block overflow-hidden align-bottom mr-[0.28em] last:mr-0">
           <motion.span
-            className={`inline-block ${gradient ? "uw-gradient-text" : ""}`}
+            className={`inline-block ${gradient ? "uw-gradient-text uw-text-glow" : ""}`}
             initial={{ y: reduce ? 0 : "110%", opacity: reduce ? 1 : 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{
@@ -117,7 +117,7 @@ const LandingPage = () => {
 
   const mouseX = useMotionValue(50);
   const mouseY = useMotionValue(40);
-  const spotlight = useMotionTemplate`radial-gradient(520px circle at ${mouseX}% ${mouseY}%, rgba(0,212,197,0.16), transparent 55%)`;
+  const spotlight = useMotionTemplate`radial-gradient(560px circle at ${mouseX}% ${mouseY}%, rgba(0,212,197,0.28), rgba(0,212,197,0.08) 38%, transparent 62%)`;
 
   const fadeUp: Variants = {
     hidden: { opacity: 0, y: reduce ? 0 : 28, filter: reduce ? "blur(0px)" : "blur(8px)" },
@@ -182,17 +182,35 @@ const LandingPage = () => {
 
         {/* Floating orbs */}
         <motion.div
-          className="pointer-events-none absolute -top-10 right-[8%] size-40 rounded-full bg-[var(--uw-cyan)]/20 blur-3xl"
+          className="pointer-events-none absolute -top-10 right-[8%] size-48 rounded-full bg-[var(--uw-cyan)]/35 blur-3xl"
           style={{ y: orbA }}
-          animate={reduce ? undefined : { x: [0, 24, 0], scale: [1, 1.15, 1] }}
+          animate={
+            reduce
+              ? undefined
+              : { x: [0, 24, 0], scale: [1, 1.2, 1], opacity: [0.55, 0.95, 0.55] }
+          }
           transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
           aria-hidden
         />
         <motion.div
-          className="pointer-events-none absolute bottom-10 left-[5%] size-52 rounded-full bg-[var(--uw-navy)]/50 blur-3xl"
+          className="pointer-events-none absolute bottom-10 left-[5%] size-56 rounded-full bg-[var(--uw-navy)]/60 blur-3xl"
           style={{ y: orbB }}
-          animate={reduce ? undefined : { x: [0, -18, 0], scale: [1, 1.1, 1] }}
+          animate={
+            reduce
+              ? undefined
+              : { x: [0, -18, 0], scale: [1, 1.15, 1], opacity: [0.5, 0.85, 0.5] }
+          }
           transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+          aria-hidden
+        />
+        <motion.div
+          className="pointer-events-none absolute top-1/3 left-1/2 size-64 -translate-x-1/2 rounded-full bg-[var(--uw-cyan)]/15 blur-3xl"
+          animate={
+            reduce
+              ? undefined
+              : { scale: [1, 1.25, 1], opacity: [0.35, 0.7, 0.35] }
+          }
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           aria-hidden
         />
 
@@ -205,16 +223,45 @@ const LandingPage = () => {
               animate="show"
             >
               <motion.img
-                variants={fadeUp}
                 src="/img/pinalink_logo.png"
                 alt="Pinalink"
                 className="mx-auto lg:mx-0 mb-cozy h-28 w-auto max-w-full object-contain sm:h-36 md:h-40"
+                initial={{ opacity: 0, y: reduce ? 0 : 28 }}
+                animate={
+                  reduce
+                    ? {
+                        opacity: 1,
+                        y: 0,
+                        filter: "drop-shadow(0 0 28px rgba(0,212,197,0.45))",
+                      }
+                    : {
+                        opacity: 1,
+                        y: 0,
+                        filter: [
+                          "drop-shadow(0 0 22px rgba(0,212,197,0.35))",
+                          "drop-shadow(0 0 38px rgba(0,212,197,0.65))",
+                          "drop-shadow(0 0 22px rgba(0,212,197,0.35))",
+                        ],
+                      }
+                }
+                transition={
+                  reduce
+                    ? { duration: 0.01 }
+                    : {
+                        opacity: { duration: 0.6, ease: easeOut },
+                        y: { duration: 0.6, ease: easeOut },
+                        filter: {
+                          duration: 3.6,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        },
+                      }
+                }
                 whileHover={
                   reduce
                     ? undefined
-                    : { scale: 1.03, filter: "drop-shadow(0 0 24px rgba(0,212,197,0.35))" }
+                    : { scale: 1.03, filter: "drop-shadow(0 0 48px rgba(0,212,197,0.8))" }
                 }
-                transition={{ type: "spring", stiffness: 260, damping: 18 }}
               />
 
               <h1 className="text-[clamp(28px,5vw,48px)] font-bold tracking-tight text-[var(--uw-text)] mb-cozy max-w-xl mx-auto lg:mx-0 leading-tight">
@@ -238,7 +285,7 @@ const LandingPage = () => {
                 <Magnetic reduce={reduce}>
                   <Link
                     to="/signup"
-                    className="uw-gradient px-wide h-14 rounded-full font-bold text-body-md shadow-[0_0_24px_rgba(0,212,197,0.25)] inline-flex items-center justify-center gap-tight w-full sm:w-auto"
+                    className="uw-glow-ring uw-glow-hover uw-gradient px-wide h-14 rounded-full font-bold text-body-md shadow-[0_0_32px_rgba(0,212,197,0.45)] inline-flex items-center justify-center gap-tight w-full sm:w-auto"
                   >
                     Get Started
                     <motion.span
@@ -253,7 +300,7 @@ const LandingPage = () => {
                 <Magnetic reduce={reduce}>
                   <Link
                     to="/login"
-                    className="bg-[var(--uw-card)] text-[var(--uw-text)] px-wide h-14 rounded-full font-bold text-body-md border border-white/10 hover:bg-[var(--uw-card-hover)] inline-flex items-center justify-center w-full sm:w-auto"
+                    className="uw-glow-hover bg-[var(--uw-card)] text-[var(--uw-text)] px-wide h-14 rounded-full font-bold text-body-md border border-white/10 hover:bg-[var(--uw-card-hover)] inline-flex items-center justify-center w-full sm:w-auto"
                   >
                     Sign in
                   </Link>
@@ -319,11 +366,11 @@ const LandingPage = () => {
                   : { y: -8, borderColor: "rgba(0,212,197,0.4)", scale: 1.01 }
               }
               transition={{ type: "spring", stiffness: 280, damping: 22 }}
-              className="md:col-span-8 bg-[var(--uw-card)] p-roomy rounded-[1.75rem] border border-white/5 flex flex-col md:flex-row gap-roomy"
+              className="uw-glow-hover md:col-span-8 bg-[var(--uw-card)] p-roomy rounded-[1.75rem] border border-white/5 flex flex-col md:flex-row gap-roomy"
             >
               <div className="flex-grow min-w-0">
                 <motion.div
-                  className="w-12 h-12 uw-gradient rounded-2xl flex items-center justify-center mb-cozy"
+                  className="uw-glow-ring w-12 h-12 uw-gradient rounded-2xl flex items-center justify-center mb-cozy shadow-[0_0_20px_rgba(0,212,197,0.4)]"
                   whileHover={reduce ? undefined : { rotate: 12, scale: 1.1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 14 }}
                 >
@@ -351,7 +398,7 @@ const LandingPage = () => {
                   <div className="w-2 h-2 rounded-full bg-[var(--uw-cyan)]/80" />
                 </div>
                 <div className="mt-12 p-snug space-y-snug">
-                  <p className="font-mono-label text-[11px] text-[var(--uw-lime)] font-bold">
+                  <p className="uw-text-glow font-mono-label text-[11px] text-[var(--uw-lime)] font-bold">
                     CERT-001 · VALID
                   </p>
                   <div className="h-2 w-2/3 bg-white/10 rounded-full" />
@@ -379,10 +426,10 @@ const LandingPage = () => {
                   ? undefined
                   : { y: -8, borderColor: "rgba(0,212,197,0.4)" }
               }
-              className="md:col-span-4 bg-[var(--uw-card)] p-roomy rounded-[1.75rem] border border-white/5"
+              className="uw-glow-hover md:col-span-4 bg-[var(--uw-card)] p-roomy rounded-[1.75rem] border border-white/5"
             >
               <motion.div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-cozy bg-[var(--uw-navy)] text-white"
+                className="uw-glow-ring w-12 h-12 rounded-2xl flex items-center justify-center mb-cozy bg-[var(--uw-navy)] text-white shadow-[0_0_18px_rgba(0,212,197,0.3)]"
                 whileHover={reduce ? undefined : { rotate: -12, scale: 1.1 }}
               >
                 <Link2 size={22} aria-hidden />
@@ -403,10 +450,10 @@ const LandingPage = () => {
                   ? undefined
                   : { y: -8, borderColor: "rgba(0,212,197,0.4)" }
               }
-              className="md:col-span-5 bg-[var(--uw-card)] p-roomy rounded-[1.75rem] border border-white/5"
+              className="uw-glow-hover md:col-span-5 bg-[var(--uw-card)] p-roomy rounded-[1.75rem] border border-white/5"
             >
               <motion.div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-cozy bg-white/10 text-[var(--uw-cyan)]"
+                className="uw-glow-ring w-12 h-12 rounded-2xl flex items-center justify-center mb-cozy bg-white/10 text-[var(--uw-cyan)] shadow-[0_0_18px_rgba(0,212,197,0.35)]"
                 whileHover={reduce ? undefined : { rotate: 12, scale: 1.1 }}
               >
                 <QrCode size={22} aria-hidden />
@@ -425,7 +472,7 @@ const LandingPage = () => {
               id="solutions"
               variants={cardIn}
               whileHover={reduce ? undefined : { y: -8, scale: 1.015 }}
-              className="md:col-span-7 rounded-[1.75rem] p-roomy flex items-center gap-roomy border border-white/5 uw-gradient"
+              className="uw-glow-ring uw-glow-hover md:col-span-7 rounded-[1.75rem] p-roomy flex items-center gap-roomy border border-white/5 uw-gradient shadow-[0_0_40px_rgba(0,212,197,0.35)]"
             >
               <div className="flex-grow min-w-0">
                 <h3 className="font-headline-md text-headline-md mb-tight text-[var(--uw-on-accent)]">
@@ -464,12 +511,12 @@ const LandingPage = () => {
 
       <section id="pricing" className="py-wide border-t border-white/5 relative overflow-hidden">
         <motion.div
-          className="pointer-events-none absolute left-1/2 top-1/2 size-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--uw-cyan)]/10 blur-3xl"
+          className="pointer-events-none absolute left-1/2 top-1/2 size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--uw-cyan)]/20 blur-3xl"
           aria-hidden
           animate={
             reduce
               ? undefined
-              : { scale: [1, 1.2, 1], opacity: [0.35, 0.65, 0.35] }
+              : { scale: [1, 1.25, 1], opacity: [0.4, 0.85, 0.4] }
           }
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -502,7 +549,7 @@ const LandingPage = () => {
             className="text-[clamp(28px,5vw,48px)] font-bold tracking-tight text-[var(--uw-text)] mb-cozy"
           >
             Start with links &amp;{" "}
-            <span className="uw-gradient-text">certificates.</span>
+            <span className="uw-gradient-text uw-text-glow">certificates.</span>
           </motion.h2>
           <motion.p
             variants={fadeUp}
@@ -518,7 +565,7 @@ const LandingPage = () => {
             <Magnetic reduce={reduce}>
               <Link
                 to="/signup"
-                className="uw-gradient px-wide h-14 rounded-full font-bold text-body-md shadow-[0_0_24px_rgba(0,212,197,0.25)] inline-flex items-center justify-center w-full sm:w-auto"
+                className="uw-glow-ring uw-glow-hover uw-gradient px-wide h-14 rounded-full font-bold text-body-md shadow-[0_0_32px_rgba(0,212,197,0.45)] inline-flex items-center justify-center w-full sm:w-auto"
               >
                 Get Started Now
               </Link>
@@ -526,7 +573,7 @@ const LandingPage = () => {
             <Magnetic reduce={reduce}>
               <a
                 href="#pricing"
-                className="bg-[var(--uw-card)] text-[var(--uw-text)] px-wide h-14 rounded-full font-bold text-body-md border border-white/10 hover:bg-[var(--uw-card-hover)] inline-flex items-center justify-center w-full sm:w-auto"
+                className="uw-glow-hover bg-[var(--uw-card)] text-[var(--uw-text)] px-wide h-14 rounded-full font-bold text-body-md border border-white/10 hover:bg-[var(--uw-card-hover)] inline-flex items-center justify-center w-full sm:w-auto"
               >
                 View All Plans
               </a>
