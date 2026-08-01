@@ -45,6 +45,7 @@ function normalizeRow(data: ShortLinkRow): ShortLinkRow {
 export async function createShortLink(
   originalUrl: string,
   userId: string,
+  opts?: { title?: string | null },
 ): Promise<ShortLinkRow> {
   let lastError: Error | null = null;
 
@@ -58,6 +59,7 @@ export async function createShortLink(
         code,
         original_url: originalUrl,
         user_id: userId,
+        title: opts?.title?.trim() || null,
       })
       .select()
       .single();

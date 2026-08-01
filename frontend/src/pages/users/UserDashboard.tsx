@@ -1,35 +1,57 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowDownRight,
   ArrowUpRight,
   BadgeCheck,
+  ClipboardPaste,
   Copy,
   Check,
   Download,
+  ExternalLink,
   LayoutDashboard,
   Link2,
   MousePointerClick,
+  PauseCircle,
+  PlayCircle,
   QrCode,
+  RefreshCw,
+  Settings2,
+  Share2,
   ShieldCheck,
+  Star,
+  Clock,
+  Heart,
 } from "lucide-react";
 import { getSession } from "../../utils/authApi";
 import { buildShortUrl, normalizeUrl } from "../../utils/shortLink";
 import {
   createShortLink,
   listShortLinksByUser,
+  updateShortLink,
   type ShortLinkRow,
 } from "../../utils/shortLinkApi";
-import { isLinkLive } from "../../utils/qrStyle";
+import {
+  isExpiringSoon,
+  isLinkExpired,
+  isLinkLive,
+} from "../../utils/qrStyle";
 import { listCertificatesByUser } from "../../utils/certificateApi";
 
 type ShortenStatus = "idle" | "loading" | "success" | "error";
 
 type ShortenResult = {
+  id: string;
   shortUrl: string;
   code: string;
   originalUrl: string;
+  title: string | null;
+};
+
+type BatchResult = {
+  created: ShortenResult[];
+  failed: string[];
 };
 
 function SparkLine({
@@ -103,15 +125,37 @@ function CapsuleStack({
   );
 }
 
+function parseUrlLines(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const normalized = normalizeUrl(trimmed);
+    if (!normalized) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
 const UserDashboard = () => {
+  const navigate = useNavigate();
+  const urlInputRef = useRef<HTMLTextAreaElement>(null);
   const [urlInput, setUrlInput] = useState("");
+  const [titleInput, setTitleInput] = useState("");
   const [status, setStatus] = useState<ShortenStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [result, setResult] = useState<ShortenResult | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [links, setLinks] = useState<ShortLinkRow[]>([]);
   const [certCount, setCertCount] = useState(0);
   const [certScans, setCertScans] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
 
   const profile = getSession();
   const displayName = profile?.name ?? "User";
@@ -125,39 +169,64 @@ const UserDashboard = () => {
     .slice(0, 2)
     .toUpperCase();
 
-  useEffect(() => {
+  async function loadDashboard(opts?: { quiet?: boolean }) {
     if (!profile) {
       setLinks([]);
       setCertCount(0);
       setCertScans(0);
       return;
     }
-    let cancelled = false;
-    void listShortLinksByUser(profile.id)
-      .then((rows) => {
-        if (!cancelled) setLinks(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setLinks([]);
-      });
-    void listCertificatesByUser(profile.id)
-      .then((rows) => {
-        if (cancelled) return;
-        setCertCount(rows.length);
-        setCertScans(
-          rows.reduce((sum, row) => sum + (row.verify_count ?? 0), 0),
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
+    if (opts?.quiet) setRefreshing(true);
+    try {
+      const [linkRows, certRows] = await Promise.all([
+        listShortLinksByUser(profile.id),
+        listCertificatesByUser(profile.id),
+      ]);
+      setLinks(linkRows);
+      setCertCount(certRows.length);
+      setCertScans(
+        certRows.reduce((sum, row) => sum + (row.verify_count ?? 0), 0),
+      );
+    } catch {
+      if (!opts?.quiet) {
+        setLinks([]);
         setCertCount(0);
         setCertScans(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Refetch after successful shorten so stats / recent list stay fresh.
-  }, [profile?.id, status === "success" ? result?.code : null]);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on profile change only
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!infoMessage) return;
+    const timer = window.setTimeout(() => setInfoMessage(""), 2500);
+    return () => window.clearTimeout(timer);
+  }, [infoMessage]);
+
+  // Focus create box when landing with #create (sidebar Ctrl/Cmd+K)
+  useEffect(() => {
+    function focusCreate() {
+      const el = document.getElementById("user-url-input");
+      if (el instanceof HTMLTextAreaElement) {
+        el.focus();
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    function onHash() {
+      if (window.location.hash === "#create") focusCreate();
+    }
+
+    window.addEventListener("hashchange", onHash);
+    if (window.location.hash === "#create") focusCreate();
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   const totalClicks = useMemo(
     () => links.reduce((sum, row) => sum + (row.click_count ?? 0), 0),
@@ -166,6 +235,24 @@ const UserDashboard = () => {
   const liveCount = useMemo(
     () =>
       links.filter((row) => isLinkLive(row.is_active, row.expires_at)).length,
+    [links],
+  );
+  const pausedCount = useMemo(
+    () => links.filter((row) => !row.is_active).length,
+    [links],
+  );
+  const favoriteCount = useMemo(
+    () => links.filter((row) => row.is_favorite).length,
+    [links],
+  );
+  const expiringSoonCount = useMemo(
+    () =>
+      links.filter(
+        (row) =>
+          row.is_active &&
+          !isLinkExpired(row.expires_at) &&
+          isExpiringSoon(row.expires_at),
+      ).length,
     [links],
   );
   const avgClicks =
@@ -202,10 +289,32 @@ const UserDashboard = () => {
     [links],
   );
 
+  const lineCount = useMemo(
+    () => urlInput.split(/\r?\n/).filter((line) => line.trim()).length,
+    [urlInput],
+  );
+
+  async function handlePasteClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setErrorMessage("Clipboard is empty.");
+        return;
+      }
+      setUrlInput((prev) => (prev.trim() ? `${prev.trim()}\n${text.trim()}` : text.trim()));
+      setErrorMessage("");
+      setInfoMessage("Pasted from clipboard.");
+      urlInputRef.current?.focus();
+    } catch {
+      setErrorMessage("Could not read clipboard. Paste manually (Ctrl/Cmd+V).");
+    }
+  }
+
   async function handleShorten(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCopied(false);
     setErrorMessage("");
+    setBatchResult(null);
 
     const current = getSession();
     if (!current) {
@@ -215,24 +324,79 @@ const UserDashboard = () => {
       return;
     }
 
-    const normalized = normalizeUrl(urlInput);
-    if (!normalized) {
+    const urls = parseUrlLines(urlInput);
+    if (urls.length === 0) {
       setStatus("error");
-      setErrorMessage("Enter a valid http(s) URL.");
+      setErrorMessage("Enter at least one valid http(s) URL (one per line).");
       setResult(null);
       return;
     }
 
+    const title = titleInput.trim() || null;
     setStatus("loading");
+
     try {
-      const row = await createShortLink(normalized, current.id);
-      setResult({
-        shortUrl: buildShortUrl(row.code),
-        code: row.code,
-        originalUrl: row.original_url,
-      });
+      if (urls.length === 1) {
+        const row = await createShortLink(urls[0], current.id, { title });
+        setResult({
+          id: row.id,
+          shortUrl: buildShortUrl(row.code),
+          code: row.code,
+          originalUrl: row.original_url,
+          title: row.title,
+        });
+        setBatchResult(null);
+        setUrlInput("");
+        setTitleInput("");
+        setStatus("success");
+        setLinks((prev) => [row, ...prev]);
+        return;
+      }
+
+      const created: ShortenResult[] = [];
+      const failed: string[] = [];
+      const newRows: ShortLinkRow[] = [];
+
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        try {
+          const rowTitle =
+            title && i === 0
+              ? title
+              : title
+                ? `${title} (${i + 1})`
+                : null;
+          const row = await createShortLink(url, current.id, {
+            title: rowTitle,
+          });
+          newRows.push(row);
+          created.push({
+            id: row.id,
+            shortUrl: buildShortUrl(row.code),
+            code: row.code,
+            originalUrl: row.original_url,
+            title: row.title,
+          });
+        } catch {
+          failed.push(url);
+        }
+      }
+
+      setLinks((prev) => [...newRows, ...prev]);
+      setBatchResult({ created, failed });
+      setResult(created[0] ?? null);
       setUrlInput("");
-      setStatus("success");
+      setTitleInput("");
+      setStatus(created.length > 0 ? "success" : "error");
+      if (created.length === 0) {
+        setErrorMessage("Batch create failed for all URLs.");
+      } else if (failed.length > 0) {
+        setInfoMessage(
+          `Created ${created.length}; ${failed.length} failed.`,
+        );
+      } else {
+        setInfoMessage(`Created ${created.length} short links.`);
+      }
     } catch (err) {
       setStatus("error");
       setResult(null);
@@ -240,13 +404,34 @@ const UserDashboard = () => {
     }
   }
 
-  async function handleCopy() {
-    if (!result) return;
+  async function handleCopy(text?: string) {
+    const value = text ?? result?.shortUrl;
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(result.shortUrl);
+      await navigator.clipboard.writeText(value);
       setCopied(true);
+      setInfoMessage("Copied.");
     } catch {
       setErrorMessage("Copy failed. Select the link and copy manually.");
+    }
+  }
+
+  async function handleShareResult() {
+    if (!result) return;
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({
+          title: result.title || "Pinalink short link",
+          url: result.shortUrl,
+        });
+        setInfoMessage("Shared.");
+        return;
+      }
+      await handleCopy(result.shortUrl);
+      setInfoMessage("Share unavailable — link copied.");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      await handleCopy(result.shortUrl);
     }
   }
 
@@ -264,6 +449,44 @@ const UserDashboard = () => {
     anchor.download = `pinalink-${result.code}.svg`;
     anchor.click();
     URL.revokeObjectURL(href);
+  }
+
+  function openStudio(id: string, tab: "edit" | "qr") {
+    navigate("/user/links-generated", { state: { selectId: id, tab } });
+  }
+
+  async function toggleFavorite(row: ShortLinkRow) {
+    setRowBusyId(row.id);
+    try {
+      const updated = await updateShortLink(row.id, {
+        is_favorite: !row.is_favorite,
+      });
+      setLinks((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setInfoMessage(updated.is_favorite ? "Favorited." : "Unfavorited.");
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Could not update favorite.",
+      );
+    } finally {
+      setRowBusyId(null);
+    }
+  }
+
+  async function togglePause(row: ShortLinkRow) {
+    setRowBusyId(row.id);
+    try {
+      const updated = await updateShortLink(row.id, {
+        is_active: !row.is_active,
+      });
+      setLinks((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setInfoMessage(updated.is_active ? "Resumed." : "Paused.");
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Could not update link.",
+      );
+    } finally {
+      setRowBusyId(null);
+    }
   }
 
   return (
@@ -337,10 +560,28 @@ const UserDashboard = () => {
       </div>
 
       <div className="flex flex-col gap-cozy sm:flex-row sm:items-end sm:justify-between uw-rise-delay-1">
-        <h1 className="text-[clamp(28px,5vw,42px)] font-bold tracking-tight uppercase leading-none uw-gradient-text">
-          Dashboard
-        </h1>
+        <div>
+          <h1 className="text-[clamp(28px,5vw,42px)] font-bold tracking-tight uppercase leading-none uw-gradient-text">
+            Dashboard
+          </h1>
+          <p className="mt-snug text-label-sm text-[var(--uw-muted)]">
+            Tip: Ctrl/Cmd+K jumps to create. Multi-line paste = batch shorten.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-tight">
+          <button
+            type="button"
+            onClick={() => void loadDashboard({ quiet: true })}
+            disabled={refreshing}
+            className="inline-flex min-h-11 items-center gap-tight rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors disabled:opacity-60 border border-white/5"
+          >
+            <RefreshCw
+              size={16}
+              className={refreshing ? "animate-spin" : undefined}
+              aria-hidden
+            />
+            Refresh
+          </button>
           <span className="inline-flex min-h-11 items-center rounded-full bg-[var(--uw-card)] px-cozy text-label-sm font-bold text-[var(--uw-muted)]">
             Links:{" "}
             <span className="ml-1 text-[var(--uw-text)]">{links.length}</span>
@@ -354,6 +595,57 @@ const UserDashboard = () => {
             <span className="ml-1 text-[var(--uw-cyan)]">{certCount}</span>
           </span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-snug uw-rise-delay-1">
+        {[
+          {
+            label: "Paused",
+            value: pausedCount,
+            icon: PauseCircle,
+            accent: "text-[#ff6b6b]",
+          },
+          {
+            label: "Favorites",
+            value: favoriteCount,
+            icon: Heart,
+            accent: "text-[var(--uw-lime)]",
+          },
+          {
+            label: "Expiring soon",
+            value: expiringSoonCount,
+            icon: Clock,
+            accent: "text-[var(--uw-orange)]",
+          },
+          {
+            label: "Total clicks",
+            value: totalClicks,
+            icon: MousePointerClick,
+            accent: "text-white",
+          },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              className="rounded-[1.25rem] border border-white/5 bg-[var(--uw-card)] p-cozy"
+            >
+              <div className="flex items-center justify-between gap-snug">
+                <p className="font-label-sm text-label-sm text-[var(--uw-muted)] uppercase tracking-wide">
+                  {stat.label}
+                </p>
+                <span
+                  className={`inline-flex size-9 items-center justify-center rounded-2xl bg-white/5 ${stat.accent}`}
+                >
+                  <Icon size={16} aria-hidden />
+                </span>
+              </div>
+              <p className="mt-snug text-2xl font-bold text-[var(--uw-text)]">
+                {stat.value}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-snug uw-rise-delay-1">
@@ -409,10 +701,22 @@ const UserDashboard = () => {
         </Link>
       </div>
 
+      {errorMessage ? (
+        <p className="text-[#ff6b6b] text-body-md" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+      {infoMessage ? (
+        <p className="text-[var(--uw-lime)] text-body-md" role="status">
+          {infoMessage}
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter uw-rise-delay-2">
         <form
+          id="create-short-link"
           onSubmit={handleShorten}
-          className="lg:col-span-7 rounded-[1.75rem] bg-[var(--uw-card)] p-cozy md:p-roomy border border-white/5"
+          className="lg:col-span-7 rounded-[1.75rem] bg-[var(--uw-card)] p-cozy md:p-roomy border border-white/5 scroll-mt-24"
         >
           <div className="flex items-start justify-between gap-snug mb-cozy">
             <div>
@@ -420,41 +724,102 @@ const UserDashboard = () => {
                 Shorten
               </p>
               <h2 className="mt-tight text-headline-md font-headline-md text-[var(--uw-text)]">
-                Paste long URL
+                Paste long URL{lineCount > 1 ? "s" : ""}
               </h2>
             </div>
-            <span className="text-[var(--uw-muted)] text-xl leading-none" aria-hidden>
-              ···
-            </span>
+            <button
+              type="button"
+              onClick={() => void handlePasteClipboard()}
+              className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-cozy text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10 transition-colors"
+            >
+              <ClipboardPaste size={16} aria-hidden />
+              Paste
+            </button>
           </div>
 
-          <label className="sr-only" htmlFor="user-url-input">
-            Paste your long URL
+          <label className="sr-only" htmlFor="user-title-input">
+            Optional title
           </label>
-          <div className="flex flex-col sm:flex-row gap-tight sm:gap-0 sm:rounded-full sm:bg-[var(--uw-elevated)] sm:p-1.5 sm:ring-1 sm:ring-white/5 focus-within:sm:ring-[var(--uw-lime)]/40 transition-all">
-            <input
-              className="w-full min-h-12 px-cozy bg-[var(--uw-elevated)] sm:bg-transparent rounded-2xl sm:rounded-full border border-white/5 sm:border-0 text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] outline-none"
+          <input
+            id="user-title-input"
+            type="text"
+            value={titleInput}
+            onChange={(e) => setTitleInput(e.target.value)}
+            placeholder="Optional title / label"
+            maxLength={120}
+            className="mb-tight w-full min-h-12 px-cozy rounded-full border border-white/5 bg-[var(--uw-elevated)] text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] outline-none focus:ring-2 focus:ring-[var(--uw-lime)]/30"
+          />
+
+          <label className="sr-only" htmlFor="user-url-input">
+            Paste your long URL(s), one per line
+          </label>
+          <div className="flex flex-col gap-tight rounded-[1.25rem] bg-[var(--uw-elevated)] p-1.5 ring-1 ring-white/5 focus-within:ring-[var(--uw-lime)]/40 transition-all">
+            <textarea
+              ref={urlInputRef}
+              className="w-full min-h-[5.5rem] px-cozy py-snug bg-transparent rounded-2xl border-0 text-body-md text-[var(--uw-text)] placeholder:text-[var(--uw-muted)] outline-none resize-y"
               id="user-url-input"
-              placeholder="https://example.com/your/long/path"
-              type="url"
+              placeholder={"https://example.com/path\nhttps://another.com/page"}
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               autoComplete="url"
               required
+              rows={3}
             />
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              className="shrink-0 min-h-12 uw-gradient px-roomy rounded-full font-bold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {status === "loading" ? "Creating..." : "Shorten"}
-            </button>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-tight px-snug pb-snug">
+              <p className="text-label-sm text-[var(--uw-muted)]">
+                {lineCount > 1
+                  ? `${lineCount} URLs detected · batch create`
+                  : "One URL, or one per line for batch"}
+              </p>
+              <button
+                type="submit"
+                disabled={status === "loading"}
+                className="shrink-0 min-h-12 uw-gradient px-roomy rounded-full font-bold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {status === "loading"
+                  ? "Creating..."
+                  : lineCount > 1
+                    ? `Shorten ${lineCount}`
+                    : "Shorten"}
+              </button>
+            </div>
           </div>
 
-          {status === "error" && errorMessage ? (
-            <p className="mt-cozy text-[#ff6b6b] text-body-md" role="alert">
-              {errorMessage}
-            </p>
+          {batchResult && batchResult.created.length > 1 ? (
+            <div className="mt-cozy rounded-2xl border border-white/5 bg-[var(--uw-elevated)] p-cozy space-y-snug">
+              <p className="font-bold text-body-md text-[var(--uw-text)]">
+                Batch: {batchResult.created.length} created
+                {batchResult.failed.length
+                  ? `, ${batchResult.failed.length} failed`
+                  : ""}
+              </p>
+              <ul className="space-y-tight max-h-40 overflow-y-auto">
+                {batchResult.created.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-tight text-label-sm"
+                  >
+                    <span className="font-mono-label text-[var(--uw-lime)] break-all">
+                      {item.shortUrl.replace(/^https?:\/\//, "")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopy(item.shortUrl)}
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/5 px-snug font-bold text-[var(--uw-text)]"
+                    >
+                      <Copy size={14} aria-hidden />
+                      Copy
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/user/links-generated"
+                className="inline-flex min-h-11 items-center font-bold text-[var(--uw-lime)] hover:underline"
+              >
+                Open all in My Links
+              </Link>
+            </div>
           ) : null}
 
           {result ? (
@@ -479,12 +844,38 @@ const UserDashboard = () => {
                 <p className="text-[var(--uw-muted)] font-label-sm text-label-sm break-all">
                   Opens: {result.originalUrl}
                 </p>
-                <Link
-                  to="/user/links-generated"
-                  className="inline-flex min-h-11 items-center text-[var(--uw-lime)] font-bold hover:underline"
-                >
-                  View all your links
-                </Link>
+                <div className="flex flex-wrap gap-tight">
+                  <button
+                    type="button"
+                    onClick={() => void handleShareResult()}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-cozy font-bold text-[var(--uw-text)] hover:bg-white/10"
+                  >
+                    <Share2 size={16} aria-hidden />
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openStudio(result.id, "edit")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-cozy font-bold text-[var(--uw-text)] hover:bg-white/10"
+                  >
+                    <Settings2 size={16} aria-hidden />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openStudio(result.id, "qr")}
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-cozy font-bold text-[var(--uw-text)] hover:bg-white/10"
+                  >
+                    <QrCode size={16} aria-hidden />
+                    QR studio
+                  </button>
+                  <Link
+                    to="/user/links-generated"
+                    className="inline-flex min-h-11 items-center gap-tight rounded-full bg-white/5 px-cozy font-bold text-[var(--uw-lime)] hover:bg-white/10"
+                  >
+                    View all links
+                  </Link>
+                </div>
               </div>
               <div className="flex-shrink-0">
                 <div className="bg-white p-snug rounded-3xl text-center">
@@ -636,30 +1027,92 @@ const UserDashboard = () => {
                       ? "bg-[var(--uw-navy)] text-white"
                       : "bg-white text-black";
                 const width = `${Math.max(42, Math.min(100, 40 + row.click_count * 4))}%`;
+                const busy = rowBusyId === row.id;
                 return (
-                  <li key={row.id} className="flex items-center gap-snug">
-                    <span className="w-10 shrink-0 font-label-sm text-label-sm text-[var(--uw-muted)]">
-                      {new Date(row.created_at).toLocaleDateString(undefined, {
-                        day: "2-digit",
-                        month: "2-digit",
-                      })}
-                    </span>
-                    <div
-                      className={`flex min-h-11 items-center justify-between gap-snug rounded-full px-cozy ${barColor} transition-transform hover:scale-[1.01]`}
-                      style={{ width }}
-                    >
-                      <span className="inline-flex items-center gap-tight min-w-0">
-                        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-black/10">
-                          <Link2 size={14} aria-hidden />
-                        </span>
-                        <span className="font-bold text-label-sm truncate">
-                          {row.title || host}
-                        </span>
+                  <li key={row.id} className="space-y-tight">
+                    <div className="flex items-center gap-snug">
+                      <span className="w-10 shrink-0 font-label-sm text-label-sm text-[var(--uw-muted)]">
+                        {new Date(row.created_at).toLocaleDateString(undefined, {
+                          day: "2-digit",
+                          month: "2-digit",
+                        })}
                       </span>
-                      <span className="inline-flex items-center gap-1 shrink-0 font-bold text-label-sm">
-                        <MousePointerClick size={14} aria-hidden />
-                        {row.click_count}
-                      </span>
+                      <div
+                        className={`flex min-h-11 items-center justify-between gap-snug rounded-full px-cozy ${barColor} transition-transform hover:scale-[1.01]`}
+                        style={{ width }}
+                      >
+                        <span className="inline-flex items-center gap-tight min-w-0">
+                          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-black/10">
+                            <Link2 size={14} aria-hidden />
+                          </span>
+                          <span className="font-bold text-label-sm truncate">
+                            {row.title || host}
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 shrink-0 font-bold text-label-sm">
+                          <MousePointerClick size={14} aria-hidden />
+                          {row.click_count}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-tight pl-12">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleCopy(shortUrl)}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/5 px-snug text-label-sm font-bold text-[var(--uw-lime)] hover:bg-white/10 disabled:opacity-60"
+                      >
+                        <Copy size={14} aria-hidden />
+                        Copy
+                      </button>
+                      <a
+                        href={shortUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/5 px-snug text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10"
+                      >
+                        <ExternalLink size={14} aria-hidden />
+                        Open
+                      </a>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void togglePause(row)}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/5 px-snug text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10 disabled:opacity-60"
+                      >
+                        {row.is_active ? (
+                          <PauseCircle size={14} aria-hidden />
+                        ) : (
+                          <PlayCircle size={14} aria-hidden />
+                        )}
+                        {row.is_active ? "Pause" : "Resume"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void toggleFavorite(row)}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/5 px-snug text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10 disabled:opacity-60"
+                        aria-label={
+                          row.is_favorite ? "Remove favorite" : "Add favorite"
+                        }
+                      >
+                        <Star
+                          size={14}
+                          fill={row.is_favorite ? "currentColor" : "none"}
+                          className={
+                            row.is_favorite ? "text-[var(--uw-lime)]" : undefined
+                          }
+                          aria-hidden
+                        />
+                      </button>
+                      <Link
+                        to="/user/links-generated"
+                        state={{ selectId: row.id, tab: "edit" as const }}
+                        className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/5 px-snug text-label-sm font-bold text-[var(--uw-text)] hover:bg-white/10"
+                      >
+                        <Settings2 size={14} aria-hidden />
+                        Edit
+                      </Link>
                     </div>
                   </li>
                 );

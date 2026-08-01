@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Copy,
@@ -29,6 +29,7 @@ import type { ReactNode } from "react";
 import { getSession } from "../../utils/authApi";
 import { buildShortUrl } from "../../utils/shortLink";
 import {
+  isExpiringSoon,
   isLinkExpired,
   isLinkLive,
   parseQrStyle,
@@ -49,7 +50,10 @@ type StudioTab = "overview" | "edit" | "qr";
 type SortMode = "newest" | "clicks" | "alpha";
 type FilterMode = "all" | "favorites" | "paused" | "expired";
 
-const EXPIRING_SOON_MS = 7 * 24 * 60 * 60 * 1000;
+type LinksLocationState = {
+  selectId?: string;
+  tab?: StudioTab;
+};
 
 function displayHost(shortUrl: string): string {
   return shortUrl.replace(/^https?:\/\//, "");
@@ -72,14 +76,6 @@ function formatRelativeDate(iso: string): string {
   });
 }
 
-function isExpiringSoon(expiresAt: string | null | undefined): boolean {
-  if (!expiresAt) return false;
-  const t = new Date(expiresAt).getTime();
-  if (Number.isNaN(t)) return false;
-  const now = Date.now();
-  return t > now && t - now <= EXPIRING_SOON_MS;
-}
-
 function barTone(row: ShortLinkRow, index: number): string {
   if (!row.is_active || isLinkExpired(row.expires_at)) {
     return "bg-white/10 text-[var(--uw-muted)] ring-1 ring-white/10";
@@ -92,6 +88,8 @@ function barTone(row: ShortLinkRow, index: number): string {
 
 const UserLinksGenerated = () => {
   const session = getSession();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [myLinks, setMyLinks] = useState<ShortLinkRow[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -203,6 +201,18 @@ const UserLinksGenerated = () => {
     const timer = window.setTimeout(() => setInfoMessage(""), 2500);
     return () => window.clearTimeout(timer);
   }, [infoMessage]);
+
+  // Post-create focus from dashboard (Edit / QR studio)
+  useEffect(() => {
+    const state = location.state as LinksLocationState | null;
+    if (!state?.selectId || myLinks.length === 0) return;
+    if (!myLinks.some((row) => row.id === state.selectId)) return;
+    setSelectedId(state.selectId);
+    if (state.tab === "edit" || state.tab === "qr" || state.tab === "overview") {
+      setStudioTab(state.tab);
+    }
+    navigate(".", { replace: true, state: null });
+  }, [location.state, myLinks, navigate]);
 
   const filteredLinks = useMemo(() => {
     const q = query.trim().toLowerCase();

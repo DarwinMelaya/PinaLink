@@ -394,6 +394,17 @@ export function isLinkLive(
   return (isActive ?? true) && !isLinkExpired(expiresAt);
 }
 
+const EXPIRING_SOON_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Active link with expires_at within the next 7 days. */
+export function isExpiringSoon(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false;
+  const t = new Date(expiresAt).getTime();
+  if (Number.isNaN(t)) return false;
+  const now = Date.now();
+  return t > now && t - now <= EXPIRING_SOON_MS;
+}
+
 const CODE_PATTERN = /^[a-zA-Z0-9_-]{3,24}$/;
 
 export function normalizeCustomCode(raw: string): string | null {

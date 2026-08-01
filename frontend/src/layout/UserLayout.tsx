@@ -12,7 +12,7 @@ const UserLayout = ({ children, title }: UserLayoutProps) => {
 
   return (
     <div className="user-workspace min-h-screen font-body-md flex">
-      <div className="hidden md:flex md:w-[88px] shrink-0 h-screen sticky top-0">
+      <div className="group/rail hidden md:flex md:w-[88px] hover:md:w-[200px] shrink-0 h-screen sticky top-0 z-30 transition-[width] duration-200 ease-out overflow-hidden">
         <UserSidebar />
       </div>
 
@@ -24,8 +24,8 @@ const UserLayout = ({ children, title }: UserLayoutProps) => {
             aria-label="Close sidebar"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-[min(100%,5.5rem)] bg-[var(--uw-elevated)] shadow-xl border-r border-white/5">
-            <UserSidebar onNavigate={() => setMobileOpen(false)} />
+          <div className="absolute inset-y-0 left-0 w-[min(100%,12rem)] bg-[var(--uw-elevated)] shadow-xl border-r border-white/5">
+            <UserSidebar expanded onNavigate={() => setMobileOpen(false)} />
           </div>
         </div>
       ) : null}
