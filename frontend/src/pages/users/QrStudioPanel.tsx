@@ -43,6 +43,7 @@ import {
   type QrErrorLevel,
   type QrStyle,
 } from "../../utils/qrStyle";
+import { getCertificateBrandingByUserId } from "../../utils/certificateBrandingApi";
 import { updateShortLink, type ShortLinkRow } from "../../utils/shortLinkApi";
 
 type QrStudioPanelProps = {
@@ -244,6 +245,8 @@ const QrStudioPanel = ({
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  /** Org logo from this link owner's certificate branding — never another user. */
+  const [orgLogoDataUrl, setOrgLogoDataUrl] = useState<string | null>(null);
 
   const displaySize = Math.min(style.size, 240);
 
@@ -256,6 +259,36 @@ const QrStudioPanel = ({
     setCopied(false);
     setSection("look");
   }, [link.id, link.qr_style]);
+
+  useEffect(() => {
+    const ownerId = link.user_id;
+    if (!ownerId) {
+      setOrgLogoDataUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadOrgLogo() {
+      try {
+        const branding = await getCertificateBrandingByUserId(ownerId);
+        if (cancelled) return;
+        const logo = branding?.logo_data_url ?? null;
+        setOrgLogoDataUrl(
+          typeof logo === "string" && logo.startsWith("data:image/")
+            ? logo
+            : null,
+        );
+      } catch {
+        if (!cancelled) setOrgLogoDataUrl(null);
+      }
+    }
+
+    void loadOrgLogo();
+    return () => {
+      cancelled = true;
+    };
+  }, [link.user_id]);
 
   useEffect(() => {
     if (!copied) return;
@@ -396,6 +429,28 @@ const QrStudioPanel = ({
     }
   }
 
+  function applyLogoDataUrl(dataUrl: string, source: "upload" | "org") {
+    patchStyle({ logoDataUrl: dataUrl, level: "H", excavate: true });
+    setMessage(
+      source === "org"
+        ? "Your org logo applied · ECC set to Max for reliable scans."
+        : "Logo added · ECC set to Max for reliable scans.",
+    );
+    setStatus("idle");
+    setSection("logo");
+  }
+
+  function handleUseOrgLogo() {
+    if (!orgLogoDataUrl) {
+      setStatus("error");
+      setMessage(
+        "No saved org logo yet. Upload one under Certificates → Branding.",
+      );
+      return;
+    }
+    applyLogoDataUrl(orgLogoDataUrl, "org");
+  }
+
   function handleLogoFile(file: File | null) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -412,10 +467,7 @@ const QrStudioPanel = ({
     reader.onload = () => {
       const result = reader.result;
       if (typeof result === "string") {
-        patchStyle({ logoDataUrl: result, level: "H", excavate: true });
-        setMessage("Logo added · ECC set to Max for reliable scans.");
-        setStatus("idle");
-        setSection("logo");
+        applyLogoDataUrl(result, "upload");
       }
     };
     reader.readAsDataURL(file);
@@ -888,6 +940,42 @@ const QrStudioPanel = ({
 
       {section === "logo" ? (
         <div className="space-y-cozy">
+          {orgLogoDataUrl ? (
+            <div className="flex flex-col gap-snug rounded-2xl border border-[var(--uw-cyan)]/25 bg-[var(--uw-elevated)] p-snug sm:flex-row sm:items-center">
+              <img
+                src={orgLogoDataUrl}
+                alt=""
+                className="size-14 shrink-0 rounded-xl object-contain bg-white"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-label-sm text-[var(--uw-text)]">
+                  Your saved org logo
+                </p>
+                <p className="text-[11px] text-[var(--uw-muted)]">
+                  From Certificates → Branding · yours only
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleUseOrgLogo}
+                disabled={style.logoDataUrl === orgLogoDataUrl}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-tight rounded-full uw-gradient px-cozy font-bold text-label-sm hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {style.logoDataUrl === orgLogoDataUrl
+                  ? "Already applied"
+                  : "Use on this QR"}
+              </button>
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-white/10 bg-[var(--uw-elevated)] px-cozy py-snug text-label-sm text-[var(--uw-muted)]">
+              No org logo saved yet. Upload once under{" "}
+              <span className="text-[var(--uw-text)] font-bold">
+                Certificates → Branding
+              </span>
+              , then reuse here — no re-upload.
+            </p>
+          )}
+
           <label
             onDragOver={(e) => {
               e.preventDefault();
@@ -907,7 +995,11 @@ const QrStudioPanel = ({
             ].join(" ")}
           >
             <ImagePlus size={28} className="text-[var(--uw-cyan)]" aria-hidden />
-            <span className="font-bold text-body-md">Drop logo here or click</span>
+            <span className="font-bold text-body-md">
+              {orgLogoDataUrl
+                ? "Or drop a different logo"
+                : "Drop logo here or click"}
+            </span>
             <span className="text-label-sm text-[var(--uw-muted)]">
               PNG / JPG / WebP / SVG · max 800KB
             </span>
@@ -930,7 +1022,9 @@ const QrStudioPanel = ({
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-label-sm">Logo attached</p>
                   <p className="text-[11px] text-[var(--uw-muted)]">
-                    ECC auto-boosted to Max
+                    {style.logoDataUrl === orgLogoDataUrl
+                      ? "Using your org logo · ECC Max"
+                      : "ECC auto-boosted to Max"}
                   </p>
                 </div>
                 <button
@@ -978,7 +1072,7 @@ const QrStudioPanel = ({
             </>
           ) : (
             <p className="text-body-md text-[var(--uw-muted)] text-center py-snug">
-              No logo yet. Brand mark in center makes QR yours.
+              No logo on this QR yet. Use org logo above or upload.
             </p>
           )}
         </div>

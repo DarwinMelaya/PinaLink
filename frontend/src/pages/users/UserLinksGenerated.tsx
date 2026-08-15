@@ -35,6 +35,7 @@ import {
   parseQrStyle,
   QR_FEATURE_HIGHLIGHTS,
 } from "../../utils/qrStyle";
+import { getCertificateBrandingByUserId } from "../../utils/certificateBrandingApi";
 import {
   deleteShortLink,
   duplicateShortLink,
@@ -104,6 +105,7 @@ const UserLinksGenerated = () => {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [orgLogoDataUrl, setOrgLogoDataUrl] = useState<string | null>(null);
 
   const displayName = session?.name ?? "User";
   const handle = session?.email
@@ -161,6 +163,7 @@ const UserLinksGenerated = () => {
       setMyLinks([]);
       setSelectedId(null);
       setCheckedIds(new Set());
+      setOrgLogoDataUrl(null);
       return;
     }
 
@@ -181,6 +184,20 @@ const UserLinksGenerated = () => {
         setErrorMessage(
           err instanceof Error ? err.message : "Could not load your links.",
         );
+        return;
+      }
+
+      try {
+        const branding = await getCertificateBrandingByUserId(session!.id);
+        if (cancelled) return;
+        const logo = branding?.logo_data_url ?? null;
+        setOrgLogoDataUrl(
+          typeof logo === "string" && logo.startsWith("data:image/")
+            ? logo
+            : null,
+        );
+      } catch {
+        if (!cancelled) setOrgLogoDataUrl(null);
       }
     }
 
@@ -573,10 +590,18 @@ const UserLinksGenerated = () => {
             </p>
           </div>
           <div
-            className="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] font-bold ring-2 ring-white/10"
+            className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] font-bold ring-2 ring-white/10"
             aria-hidden
           >
-            {initials || "U"}
+            {orgLogoDataUrl ? (
+              <img
+                src={orgLogoDataUrl}
+                alt=""
+                className="size-full object-cover"
+              />
+            ) : (
+              initials || "U"
+            )}
             <span className="absolute -top-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-[#ff3b30] text-[10px] text-white font-bold">
               {myLinks.length > 9 ? "9+" : myLinks.length}
             </span>
