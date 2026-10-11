@@ -44,12 +44,15 @@ import {
   type QrStyle,
 } from "../../utils/qrStyle";
 import { getCertificateBrandingByUserId } from "../../utils/certificateBrandingApi";
+import { addQrLogo, loadQrLogos, removeQrLogo } from "../../utils/qrLogoLibrary";
 import { updateShortLink, type ShortLinkRow } from "../../utils/shortLinkApi";
 
 type QrStudioPanelProps = {
   link: ShortLinkRow;
   shortUrl: string;
   onSaved: (row: ShortLinkRow) => void;
+  /** Logos already saved on the user's other links' QR styles. */
+  linkLogos?: string[];
   onEditDestination?: () => void;
 };
 
@@ -232,6 +235,7 @@ const QrStudioPanel = ({
   link,
   shortUrl,
   onSaved,
+  linkLogos = [],
   onEditDestination,
 }: QrStudioPanelProps) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -247,8 +251,27 @@ const QrStudioPanel = ({
   const [dragOver, setDragOver] = useState(false);
   /** Org logo from this link owner's certificate branding — never another user. */
   const [orgLogoDataUrl, setOrgLogoDataUrl] = useState<string | null>(null);
+  const [uploadedLogos, setUploadedLogos] = useState<string[]>(() =>
+    link.user_id ? loadQrLogos(link.user_id) : [],
+  );
 
   const displaySize = Math.min(style.size, 240);
+
+  const logoLibrary = useMemo(() => {
+    const seen = new Set<string>(orgLogoDataUrl ? [orgLogoDataUrl] : []);
+    const library: { dataUrl: string; removable: boolean }[] = [];
+    for (const dataUrl of uploadedLogos) {
+      if (seen.has(dataUrl)) continue;
+      seen.add(dataUrl);
+      library.push({ dataUrl, removable: true });
+    }
+    for (const dataUrl of linkLogos) {
+      if (seen.has(dataUrl)) continue;
+      seen.add(dataUrl);
+      library.push({ dataUrl, removable: false });
+    }
+    return library;
+  }, [orgLogoDataUrl, uploadedLogos, linkLogos]);
 
   useEffect(() => {
     const next = parseQrStyle(link.qr_style);
@@ -269,9 +292,9 @@ const QrStudioPanel = ({
 
     let cancelled = false;
 
-    async function loadOrgLogo() {
+    async function loadOrgLogo(userId: string) {
       try {
-        const branding = await getCertificateBrandingByUserId(ownerId);
+        const branding = await getCertificateBrandingByUserId(userId);
         if (cancelled) return;
         const logo = branding?.logo_data_url ?? null;
         setOrgLogoDataUrl(
@@ -284,7 +307,7 @@ const QrStudioPanel = ({
       }
     }
 
-    void loadOrgLogo();
+    void loadOrgLogo(ownerId);
     return () => {
       cancelled = true;
     };
@@ -466,11 +489,25 @@ const QrStudioPanel = ({
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
-      if (typeof result === "string") {
-        applyLogoDataUrl(result, "upload");
+      if (typeof result !== "string") return;
+      applyLogoDataUrl(result, "upload");
+      if (!link.user_id) return;
+      const stored = addQrLogo(link.user_id, result);
+      setUploadedLogos(stored);
+      if (!stored.includes(result)) {
+        setMessage("Logo added, but browser storage is full — it won't be kept for other links.");
       }
     };
+    reader.onerror = () => {
+      setStatus("error");
+      setMessage("Could not read that image.");
+    };
     reader.readAsDataURL(file);
+  }
+
+  function handleForgetLogo(dataUrl: string) {
+    if (!link.user_id) return;
+    setUploadedLogos(removeQrLogo(link.user_id, dataUrl));
   }
 
   const sectionBtn = (id: StudioSection, label: string, icon: ReactNode) => (
@@ -976,6 +1013,47 @@ const QrStudioPanel = ({
             </p>
           )}
 
+          {logoLibrary.length > 0 ? (
+            <div>
+              <p className="mb-tight font-label-sm text-label-sm text-[var(--uw-muted)]">
+                Your logos · tap to use
+              </p>
+              <ul className="grid grid-cols-3 gap-snug sm:grid-cols-4">
+                {logoLibrary.map(({ dataUrl, removable }) => {
+                  const active = style.logoDataUrl === dataUrl;
+                  return (
+                    <li key={dataUrl} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => applyLogoDataUrl(dataUrl, "upload")}
+                        aria-pressed={active}
+                        aria-label={active ? "Logo in use" : "Use this logo"}
+                        className={[
+                          "flex aspect-square w-full items-center justify-center rounded-2xl border bg-white p-2 transition-colors",
+                          active
+                            ? "border-[var(--uw-cyan)] ring-2 ring-[var(--uw-cyan)]/40"
+                            : "border-white/10 hover:border-[var(--uw-cyan)]/50",
+                        ].join(" ")}
+                      >
+                        <img src={dataUrl} alt="" className="max-h-full max-w-full object-contain" />
+                      </button>
+                      {removable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleForgetLogo(dataUrl)}
+                          aria-label="Remove from your logos"
+                          className="absolute -right-2 -top-2 inline-flex size-8 items-center justify-center rounded-full border border-white/10 bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[#ff6b6b]"
+                        >
+                          <X size={14} aria-hidden />
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
           <label
             onDragOver={(e) => {
               e.preventDefault();
@@ -996,8 +1074,8 @@ const QrStudioPanel = ({
           >
             <ImagePlus size={28} className="text-[var(--uw-cyan)]" aria-hidden />
             <span className="font-bold text-body-md">
-              {orgLogoDataUrl
-                ? "Or drop a different logo"
+              {orgLogoDataUrl || logoLibrary.length > 0
+                ? "Or upload a new logo"
                 : "Drop logo here or click"}
             </span>
             <span className="text-label-sm text-[var(--uw-muted)]">
@@ -1007,7 +1085,10 @@ const QrStudioPanel = ({
               type="file"
               accept="image/png,image/jpeg,image/webp,image/svg+xml"
               className="sr-only"
-              onChange={(e) => handleLogoFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                handleLogoFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
             />
           </label>
 

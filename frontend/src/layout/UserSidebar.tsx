@@ -1,116 +1,75 @@
 import { useEffect, useState } from "react";
-import { NavLink, Link, useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Link2,
-  LogOut,
-  Plus,
-  BadgeCheck,
-  Keyboard,
-} from "lucide-react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { BadgeCheck, LayoutDashboard, Link2, LogOut, Plus, type LucideIcon } from "lucide-react";
 import { getSession, logout } from "../utils/authApi";
 import { listShortLinksByUser } from "../utils/shortLinkApi";
 import { listCertificatesByUser } from "../utils/certificateApi";
 
-const NAV_ITEMS = [
-  {
-    to: "/user/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    end: true,
-    badgeKey: null,
-  },
-  {
-    to: "/user/links-generated",
-    label: "My Links",
-    icon: Link2,
-    end: false,
-    badgeKey: "links" as const,
-  },
+type CountKey = "links" | "certs";
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end: boolean;
+  countKey: CountKey | null;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { to: "/user/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true, countKey: null },
+  { to: "/user/links-generated", label: "My links", icon: Link2, end: false, countKey: "links" },
   {
     to: "/user/verified-certificate",
     label: "Certificates",
     icon: BadgeCheck,
     end: false,
-    badgeKey: "certs" as const,
+    countKey: "certs",
   },
-] as const;
+];
+
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--uw-cyan)]/50";
+
+const SHORTCUT_LABEL = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘K" : "Ctrl K";
 
 type UserSidebarProps = {
+  /** Called after any navigation so the mobile drawer can close. */
   onNavigate?: () => void;
-  /** Always show labels (mobile drawer). Desktop uses hover expand. */
-  expanded?: boolean;
 };
 
-function formatBadge(count: number): string {
-  if (count <= 0) return "";
-  return count > 9 ? "9+" : String(count);
-}
-
-const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
+const UserSidebar = ({ onNavigate }: UserSidebarProps) => {
   const navigate = useNavigate();
   const session = getSession();
-  const [linkCount, setLinkCount] = useState(0);
-  const [certCount, setCertCount] = useState(0);
+  const userId = session?.id ?? null;
+  const [counts, setCounts] = useState<Record<CountKey, number> | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const displayName = session?.name ?? "User";
-  const initials = displayName
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const displayName = session?.name?.trim() || "Account";
+  const initials =
+    displayName
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "U";
 
   useEffect(() => {
-    if (!session) {
-      setLinkCount(0);
-      setCertCount(0);
-      return;
-    }
+    if (!userId) return;
     let cancelled = false;
-    void Promise.all([
-      listShortLinksByUser(session.id),
-      listCertificatesByUser(session.id),
-    ])
+    Promise.all([listShortLinksByUser(userId), listCertificatesByUser(userId)])
       .then(([links, certs]) => {
-        if (cancelled) return;
-        setLinkCount(links.length);
-        setCertCount(certs.length);
+        if (!cancelled) setCounts({ links: links.length, certs: certs.length });
       })
       .catch(() => {
-        if (cancelled) return;
-        setLinkCount(0);
-        setCertCount(0);
+        // Counts are a convenience; leave them hidden if loading fails.
+        if (!cancelled) setCounts(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [session?.id]);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      if (event.key.toLowerCase() !== "k") return;
-      // Let dashboard page handle focus if already there; always navigate to create
-      event.preventDefault();
-      onNavigate?.();
-      navigate("/user/dashboard#create");
-      window.setTimeout(() => {
-        const el = document.getElementById("user-url-input");
-        if (el instanceof HTMLTextAreaElement) {
-          el.focus();
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }, 50);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [navigate, onNavigate]);
+  }, [userId]);
 
   async function handleLogout() {
-    const ok = window.confirm("Log out of Pinalink?");
-    if (!ok) return;
     setLoggingOut(true);
     try {
       await logout();
@@ -120,175 +79,92 @@ const UserSidebar = ({ onNavigate, expanded = false }: UserSidebarProps) => {
     }
   }
 
-  function badgeFor(key: "links" | "certs" | null): string {
-    if (key === "links") return formatBadge(linkCount);
-    if (key === "certs") return formatBadge(certCount);
-    return "";
-  }
-
-  const showLabel = expanded
-    ? "inline"
-    : "hidden group-hover/sidebar:inline md:group-hover/rail:inline";
-  const showBlock = expanded
-    ? "block"
-    : "hidden group-hover/sidebar:block md:group-hover/rail:block";
-  const showFlex = expanded
-    ? "flex"
-    : "hidden group-hover/sidebar:flex md:group-hover/rail:flex";
-  const rowAlign = expanded
-    ? "justify-start px-snug"
-    : "justify-center group-hover/sidebar:justify-start group-hover/sidebar:px-snug md:group-hover/rail:justify-start md:group-hover/rail:px-snug";
-  const hideWhenExpanded = expanded
-    ? "hidden"
-    : "group-hover/sidebar:hidden md:group-hover/rail:hidden";
-
   return (
-    <aside className="group/sidebar flex h-full min-h-0 w-full flex-col bg-[var(--uw-elevated)] text-[var(--uw-text)] font-body-md py-cozy px-tight border-r border-white/5 transition-[width] duration-200">
-      <Link
-        to="/user/dashboard"
-        onClick={onNavigate}
-        className="uw-glow-ring uw-glow-hover mx-auto flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black ring-1 ring-[var(--uw-cyan)]/40 hover:ring-[var(--uw-cyan)] transition-all uw-pop"
-        aria-label="Pinalink home"
-      >
-        <img
-          src="/img/pinalink_logo.png"
-          alt=""
-          className="h-10 w-10 object-cover object-left scale-[1.85]"
-          aria-hidden
-        />
-      </Link>
-
-      <div
-        className={[
-          "mt-snug mx-auto flex max-w-full flex-col items-center gap-tight px-1 transition-all duration-200",
-          expanded
-            ? "opacity-100 max-h-20"
-            : "opacity-0 max-h-0 overflow-hidden group-hover/sidebar:opacity-100 group-hover/sidebar:max-h-20 md:group-hover/rail:opacity-100 md:group-hover/rail:max-h-20",
-        ].join(" ")}
-      >
-        <div
-          className="uw-text-glow flex size-10 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] text-label-sm font-bold ring-1 ring-[var(--uw-cyan)]/25"
-          aria-hidden
+    <aside className="flex h-full min-h-0 w-full flex-col border-r border-white/[0.06] bg-[var(--uw-elevated)] font-body-md text-[var(--uw-text)]">
+      <div className="px-4 pb-4 pt-5">
+        <Link
+          to="/user/dashboard"
+          onClick={onNavigate}
+          className={`inline-flex min-h-11 items-center rounded-lg ${FOCUS_RING}`}
         >
-          {initials || "U"}
-        </div>
-        <p
-          className={`${showBlock} w-full truncate text-center text-[11px] font-bold text-[var(--uw-muted)]`}
-        >
-          {displayName}
-        </p>
+          <img src="/img/pinalink_logo.png" alt="Pinalink home" className="h-8 w-auto" />
+        </Link>
       </div>
 
-      <nav
-        className="mt-roomy flex flex-1 flex-col items-stretch gap-snug min-w-0"
-        aria-label="User"
-      >
-        <ul className="flex flex-col items-stretch gap-snug">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const badge = badgeFor(item.badgeKey);
+      <div className="px-3">
+        <Link
+          to="/user/dashboard#create"
+          onClick={onNavigate}
+          className={`flex min-h-11 w-full items-center gap-2 rounded-xl bg-[var(--uw-cyan)] px-3.5 text-sm font-semibold text-[var(--uw-on-accent)] transition hover:brightness-110 ${FOCUS_RING}`}
+        >
+          <Plus size={18} aria-hidden />
+          New link
+          <kbd className="ml-auto hidden rounded-md bg-black/15 px-1.5 py-0.5 font-sans text-[11px] font-medium md:inline">
+            {SHORTCUT_LABEL}
+          </kbd>
+        </Link>
+      </div>
+
+      <nav className="mt-6 flex-1 overflow-y-auto px-3" aria-label="Main">
+        <ul className="space-y-1">
+          {NAV_ITEMS.map(({ to, label, icon: Icon, end, countKey }) => {
+            const count = countKey && counts ? counts[countKey] : null;
             return (
-              <li key={item.to} className="px-0.5">
+              <li key={to}>
                 <NavLink
-                  to={item.to}
-                  end={item.end}
+                  to={to}
+                  end={end}
                   onClick={onNavigate}
-                  title={item.label}
-                  aria-label={item.label}
                   className={({ isActive }) =>
                     [
-                      "relative flex min-h-12 w-full items-center gap-snug rounded-2xl px-0 transition-all",
-                      rowAlign,
+                      "relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                      FOCUS_RING,
                       isActive
-                        ? "uw-glow-ring uw-gradient text-[var(--uw-on-accent)] shadow-[0_0_26px_rgba(0,212,197,0.45)]"
-                        : "uw-glow-hover bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[var(--uw-text)] hover:bg-[var(--uw-card-hover)]",
+                        ? "bg-[var(--uw-card-hover)] text-[var(--uw-text)] before:absolute before:inset-y-2.5 before:left-0 before:w-[3px] before:rounded-full before:bg-[var(--uw-cyan)]"
+                        : "text-[var(--uw-muted)] hover:bg-[var(--uw-card)] hover:text-[var(--uw-text)]",
                     ].join(" ")
                   }
                 >
-                  <span className="relative inline-flex size-12 shrink-0 items-center justify-center">
-                    <Icon size={20} aria-hidden />
-                    {badge ? (
-                      <span className="uw-glow-badge absolute -top-0.5 -right-0.5 flex min-w-5 h-5 items-center justify-center rounded-full bg-[#ff3b30] px-1 text-[10px] font-bold text-white">
-                        {badge}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span
-                    className={`${showLabel} truncate text-label-sm font-bold pr-snug`}
-                  >
-                    {item.label}
-                  </span>
+                  <Icon size={18} aria-hidden />
+                  <span className="flex-1 truncate">{label}</span>
+                  {count !== null && count > 0 ? (
+                    <span className="text-xs tabular-nums text-[var(--uw-muted)]">
+                      <span className="sr-only">(</span>
+                      {count}
+                      <span className="sr-only">)</span>
+                    </span>
+                  ) : null}
                 </NavLink>
               </li>
             );
           })}
         </ul>
-
-        <div className="mt-auto flex flex-col items-stretch gap-snug pb-tight px-0.5">
-          <button
-            type="button"
-            title="Create short link (Ctrl/Cmd+K)"
-            aria-label="Create short link"
-            onClick={() => {
-              onNavigate?.();
-              navigate("/user/dashboard#create");
-              window.setTimeout(() => {
-                document.getElementById("user-url-input")?.focus();
-              }, 50);
-            }}
-            className={[
-              "uw-glow-ring uw-glow-hover flex min-h-12 w-full items-center gap-snug rounded-full uw-gradient font-bold hover:brightness-110 active:scale-95 transition-all shadow-[0_0_22px_rgba(0,212,197,0.4)]",
-              rowAlign,
-            ].join(" ")}
-          >
-            <span className="inline-flex size-12 shrink-0 items-center justify-center">
-              <Plus size={22} aria-hidden />
-            </span>
-            <span className={`${showLabel} truncate text-label-sm pr-snug`}>
-              New link
-            </span>
-          </button>
-
-          <p
-            className={`${showFlex} items-center justify-center gap-1 text-[10px] text-[var(--uw-muted)] px-1`}
-            title="Keyboard shortcut"
-          >
-            <Keyboard size={12} aria-hidden />
-            Ctrl/Cmd+K
-          </p>
-
-          <div
-            className={`uw-text-glow mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--uw-card)] text-[var(--uw-lime)] font-bold ring-1 ring-[var(--uw-cyan)]/25 ${hideWhenExpanded}`}
-            title={displayName}
-            aria-hidden
-          >
-            {initials || "U"}
-          </div>
-
-          <button
-            type="button"
-            title="Logout"
-            aria-label="Logout"
-            disabled={loggingOut}
-            onClick={() => {
-              void handleLogout();
-            }}
-            className={[
-              "uw-glow-hover uw-glow-danger flex min-h-12 w-full items-center gap-snug rounded-2xl bg-[var(--uw-card)] text-[var(--uw-muted)] hover:text-[#ff6b6b] hover:bg-[var(--uw-card-hover)] transition-colors disabled:opacity-60",
-              rowAlign,
-            ].join(" ")}
-          >
-            <span className="inline-flex size-12 shrink-0 items-center justify-center">
-              <LogOut size={18} aria-hidden />
-            </span>
-            <span
-              className={`${showLabel} truncate text-label-sm font-bold pr-snug`}
-            >
-              {loggingOut ? "Logging out…" : "Logout"}
-            </span>
-          </button>
-        </div>
       </nav>
+
+      <div className="flex items-center gap-3 border-t border-white/[0.06] px-3 py-3">
+        <span
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--uw-card)] text-xs font-semibold text-[var(--uw-text)]"
+          aria-hidden
+        >
+          {initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-[var(--uw-text)]">{displayName}</p>
+          {session?.email ? (
+            <p className="truncate text-xs text-[var(--uw-muted)]">{session.email}</p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          disabled={loggingOut}
+          aria-label={loggingOut ? "Logging out" : "Log out"}
+          title="Log out"
+          className={`inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-[var(--uw-muted)] transition-colors hover:bg-[#ff6b6b]/10 hover:text-[#ff8a8a] disabled:opacity-60 ${FOCUS_RING}`}
+        >
+          <LogOut size={18} aria-hidden />
+        </button>
+      </div>
     </aside>
   );
 };

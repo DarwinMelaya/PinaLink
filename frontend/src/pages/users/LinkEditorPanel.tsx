@@ -7,6 +7,7 @@ import {
   updateShortLink,
   type ShortLinkRow,
 } from "../../utils/shortLinkApi";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
 
 type LinkEditorPanelProps = {
   link: ShortLinkRow;
@@ -34,6 +35,8 @@ const LinkEditorPanel = ({ link, onSaved, onDeleted }: LinkEditorPanelProps) => 
   );
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setTitle(link.title ?? "");
@@ -92,22 +95,22 @@ const LinkEditorPanel = ({ link, onSaved, onDeleted }: LinkEditorPanelProps) => 
   }
 
   async function handleDelete() {
-    const ok = window.confirm(
-      `Delete short link /${link.code}? This cannot be undone.`,
-    );
-    if (!ok) return;
-
-    setStatus("saving");
+    setDeleting(true);
     try {
       await deleteShortLink(link.id);
+      setConfirmOpen(false);
       onDeleted(link.id);
     } catch (err) {
+      setConfirmOpen(false);
       setStatus("error");
       setMessage(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDeleting(false);
     }
   }
 
   return (
+    <>
     <form onSubmit={(e) => void handleSave(e)} className="space-y-cozy">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-cozy">
         <div className="md:col-span-2">
@@ -242,8 +245,8 @@ const LinkEditorPanel = ({ link, onSaved, onDeleted }: LinkEditorPanelProps) => 
       <div className="flex flex-col-reverse sm:flex-row gap-tight pt-cozy border-t border-white/5 sticky bottom-0 bg-[var(--uw-card)] pb-tight">
         <button
           type="button"
-          onClick={() => void handleDelete()}
-          disabled={status === "saving"}
+          onClick={() => setConfirmOpen(true)}
+          disabled={status === "saving" || deleting}
           className="inline-flex min-h-12 items-center justify-center gap-tight rounded-full border border-[#ff6b6b]/30 px-cozy text-[#ff6b6b] font-bold hover:bg-[#ff6b6b]/10 disabled:opacity-60 transition-colors"
         >
           <Trash2 size={16} aria-hidden />
@@ -259,6 +262,23 @@ const LinkEditorPanel = ({ link, onSaved, onDeleted }: LinkEditorPanelProps) => 
         </button>
       </div>
     </form>
+
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Delete this link?"
+      description={
+        <>
+          <span className="font-medium text-[var(--uw-text)]">/{link.code}</span> will stop
+          working right away, along with its click count and QR design. This can&apos;t be
+          undone.
+        </>
+      }
+      confirmLabel="Delete link"
+      busy={deleting}
+      onConfirm={() => void handleDelete()}
+      onCancel={() => setConfirmOpen(false)}
+    />
+    </>
   );
 };
 
